@@ -1,0 +1,84 @@
+!pip install opencv-python
+!pip install easyocr
+!pip install matplotlib
+!pip install keras-ocr
+
+import cv2
+from keras.models import load_model
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Carica l'immagine
+path = '/content/matrice.png'
+image = cv2.imread(path, cv2.IMREAD_GRAYSCALE)  # Carica l'immagine in scala di grigi
+
+# Ridimensiona l'immagine (se necessario)
+resized_image = cv2.resize(image, (0, 0), fx=0.5, fy=0.5)  # Ridimensiona l'immagine al 50% della dimensione originale
+
+# Applica il filtro Gaussiano per ridurre il rumore
+blurred_image = cv2.GaussianBlur(resized_image, (5, 5), 0)
+
+# Binarizzazione dell'immagine utilizzando la sogliatura di Otsu
+_, binary_image = cv2.threshold(blurred_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+# Inverti i colori dell'immagine binaria
+binary_image = cv2.bitwise_not(binary_image)
+
+# Trova i contorni nell'immagine binaria
+contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# Trova estra e visualizza la ROI per ogni contorno trovato
+for contour in contours:
+    # Calcola l'area del contorno
+    contour_area = cv2.contourArea(contour)
+
+    # Imposta un limite minimo sull'area dei contorni da considerare come ROI
+    min_contour_area = 50  # Modifica questo valore secondo necessità
+
+    # Se l'area del contorno supera il limite minimo
+    if contour_area > min_contour_area:
+        # Trova i rettangoli di delimitazione della ROI
+        x, y, w, h = cv2.boundingRect(contour)
+
+        # Estrai la ROI
+        roi = resized_image[y:y+h, x:x+w]
+
+        # Ridimensiona la ROI a 28x28 pixel
+        roi_resized = cv2.resize(roi, (28, 28))
+
+        # Normalizza l'immagine
+        image_normalized = roi_resized / 255.0
+
+        # Aggiungi una dimensione per il batch
+        input_data = image_normalized.reshape(1, 28, 28, 1)
+
+        # Carica il modello OCR preaddestrato
+        model = load_model('/content/modello_emnist_letters.h5')  # Assicurati di specificare il percorso corretto del modello salvato
+
+        # Esegui il riconoscimento del testo nell'immagine utilizzando il modello OCR
+        predictions = model.predict(input_data)
+
+        # Ottieni il valore predetto
+        predicted_value = np.argmax(predictions)
+
+        # Visualizza la ROI
+        plt.imshow(roi, cmap='gray')
+        plt.title('Region of Interest (ROI)')
+        plt.axis('off')
+        plt.show()
+
+        # Visualizza la ROI ridimensionata
+        plt.imshow(roi_resized, cmap='gray')
+        plt.title('ROI ridimensionata a 28x28')
+        plt.axis('off')
+        plt.show()
+
+        # Visualizza il valore predetto
+        print("Valore predetto:", predicted_value)
+
+
+
+
+
+
+
