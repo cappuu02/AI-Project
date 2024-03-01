@@ -1,0 +1,84 @@
+import numpy as np
+from tensorflow.keras import models, layers
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping
+from emnist import extract_training_samples, extract_test_samples
+from sklearn.utils import shuffle
+
+# Load the dataset with letters
+(train_images_letters, train_labels_letters) = extract_training_samples('letters')
+(test_images_letters, test_labels_letters) = extract_test_samples('letters')
+
+# Normalize the images
+train_images_letters, test_images_letters = train_images_letters / 255.0, test_images_letters / 255.0
+
+# Define the characters to train on
+characters_to_train = [19, 3, 24, 22, 4, 6]
+
+# Filter training data for the specified characters
+filtered_indices_train = np.isin(train_labels_letters, characters_to_train)
+train_images_filtered = train_images_letters[filtered_indices_train]
+train_labels_filtered = train_labels_letters[filtered_indices_train]
+
+# Filter test data for the specified characters
+filtered_indices_test = np.isin(test_labels_letters, characters_to_train)
+test_images_filtered = test_images_letters[filtered_indices_test]
+test_labels_filtered = test_labels_letters[filtered_indices_test]
+
+# Reshape data to match the input shape of the model
+train_images_filtered = train_images_filtered.reshape((-1, 28, 28, 1))
+test_images_filtered = test_images_filtered.reshape((-1, 28, 28, 1))
+
+# Shuffle the training data
+train_images_filtered, train_labels_filtered = shuffle(train_images_filtered, train_labels_filtered)
+
+# Construct the CNN model with increased complexity
+model = models.Sequential([
+    layers.Conv2D(64, (3, 3), activation='relu', input_shape=(28, 28, 1)),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(128, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Flatten(),
+    layers.Dense(256, activation='relu'),
+    layers.Dropout(0.5),
+    layers.Dense(25, activation='softmax')
+])
+
+# Compile the model with a different optimizer and a lower learning rate
+optimizer = Adam(lr=0.0001)
+model.compile(optimizer=optimizer,
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+# Introduce early stopping to prevent overfitting
+early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+
+# Train the model with increased epochs
+history = model.fit(train_images_filtered, train_labels_filtered, epochs=20,
+                    validation_data=(test_images_filtered, test_labels_filtered),
+                    callbacks=[early_stopping])
+
+model.save("venv/MioModello")
+
+# Evaluate the model on the test set
+test_loss, test_accuracy = model.evaluate(test_images_filtered, test_labels_filtered)
+
+print(f'Test Accuracy: {test_accuracy * 100:.2f}%')
+print(f'Test Loss: {test_loss:.4f}')
+
+# Make predictions on some test images
+predictions = model.predict(test_images_filtered)
+
+# Print predictions for a single test image
+index_to_check = 0  # Replace with the desired index
+predicted_label = np.argmax(predictions[index_to_check])
+true_label = test_labels_filtered[index_to_check]
+
+print(f'Predicted Label: {predicted_label}')
+print(f'True Label: {true_label}')
+
+# If you want to visualize the image, you can do so with matplotlib
+import matplotlib.pyplot as plt
+
+plt.imshow(test_images_filtered[index_to_check].reshape(28, 28), cmap='gray')
+plt.show()
