@@ -1,9 +1,31 @@
+import importlib.util
+
+# Verifica se OpenCV è installato
+spec = importlib.util.find_spec("emnist")
+if spec is None:
+    !pip install emnist
+
+# Verifica se Matplotlib è installato
+spec = importlib.util.find_spec("tensorflow")
+if spec is None:
+    !pip install tensorflow
+
+# Verifica se keras-ocr è installato
+spec = importlib.util.find_spec("keras")
+if spec is None:
+    !pip install keras
+
+from google.colab import drive
 import numpy as np
 from tensorflow.keras import models, layers
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 from emnist import extract_training_samples, extract_test_samples
 from sklearn.utils import shuffle
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+
+
 
 # Load the dataset with letters
 (train_images_letters, train_labels_letters) = extract_training_samples('letters')
@@ -38,14 +60,16 @@ model = models.Sequential([
     layers.MaxPooling2D((2, 2)),
     layers.Conv2D(128, (3, 3), activation='relu'),
     layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(256, (3, 3), activation='relu'),  # Increase the number of filters
+    layers.MaxPooling2D((2, 2)),
     layers.Flatten(),
-    layers.Dense(256, activation='relu'),
+    layers.Dense(512, activation='relu'),  # Increase the number of neurons
     layers.Dropout(0.5),
     layers.Dense(25, activation='softmax')
 ])
 
 # Compile the model with a different optimizer and a lower learning rate
-optimizer = Adam(lr=0.0001)
+optimizer = Adam(learning_rate=0.0001)
 model.compile(optimizer=optimizer,
               loss='sparse_categorical_crossentropy',
               metrics=['accuracy'])
@@ -53,12 +77,18 @@ model.compile(optimizer=optimizer,
 # Introduce early stopping to prevent overfitting
 early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
 
+# Data Augmentation
+datagen = ImageDataGenerator(rotation_range=10, width_shift_range=0.1, height_shift_range=0.1, zoom_range=0.1)
+datagen.fit(train_images_filtered)
+
 # Train the model with increased epochs
-history = model.fit(train_images_filtered, train_labels_filtered, epochs=20,
+history = model.fit(datagen.flow(train_images_filtered, train_labels_filtered, batch_size=32),
+                    steps_per_epoch=len(train_images_filtered) / 32, epochs=20,
                     validation_data=(test_images_filtered, test_labels_filtered),
                     callbacks=[early_stopping])
 
-model.save("venv/MioModello")
+# Salva il modello
+model.save('/content/drive/MyDrive/ProgettoAI/Modello/MioModello')
 
 # Evaluate the model on the test set
 test_loss, test_accuracy = model.evaluate(test_images_filtered, test_labels_filtered)
@@ -66,19 +96,3 @@ test_loss, test_accuracy = model.evaluate(test_images_filtered, test_labels_filt
 print(f'Test Accuracy: {test_accuracy * 100:.2f}%')
 print(f'Test Loss: {test_loss:.4f}')
 
-# Make predictions on some test images
-predictions = model.predict(test_images_filtered)
-
-# Print predictions for a single test image
-index_to_check = 0  # Replace with the desired index
-predicted_label = np.argmax(predictions[index_to_check])
-true_label = test_labels_filtered[index_to_check]
-
-print(f'Predicted Label: {predicted_label}')
-print(f'True Label: {true_label}')
-
-# If you want to visualize the image, you can do so with matplotlib
-import matplotlib.pyplot as plt
-
-plt.imshow(test_images_filtered[index_to_check].reshape(28, 28), cmap='gray')
-plt.show()
