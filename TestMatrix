@@ -23,16 +23,20 @@ import matplotlib.pyplot as plt
 
 def remove_grid(image):
     # Applica il filtro di Canny per individuare i bordi nell'immagine
-    edges = cv2.Canny(image, 50, 150, apertureSize=3)
+    edges = cv2.Canny(image, 50,700, apertureSize=3)
+    
+     # Applica l'operazione di chiusura per chiudere eventuali lacune nei bordi
+    kernel = np.ones((5,5),np.uint8)
+    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
     
     # Trova le linee nell'immagine utilizzando la trasformata di Hough
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100, minLineLength=100, maxLineGap=10)
+    lines = cv2.HoughLinesP(edges, 0.1, np.pi / 180, threshold=100, minLineLength=150, maxLineGap=20)
 
     # Disegna le linee trovate sull'immagine originale
     if lines is not None:
         for line in lines:
             x1, y1, x2, y2 = line[0]
-            cv2.line(image, (x1, y1), (x2, y2), (255, 255, 255), 2)  # Disegna linee bianche per coprire le griglie
+            cv2.line(image, (x1, y1), (x2, y2), (255, 255, 255), 20)  # Disegna linee bianche per coprire le griglie
 
     return image
 
