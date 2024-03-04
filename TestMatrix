@@ -1,4 +1,9 @@
-import importlib.util
+import sys
+from utils import *
+from search import Problem
+
+
+
 
 # Verifica se OpenCV è installato
 spec = importlib.util.find_spec("cv2")
@@ -24,11 +29,11 @@ import matplotlib.pyplot as plt
 def remove_grid(image):
     # Applica il filtro di Canny per individuare i bordi nell'immagine
     edges = cv2.Canny(image, 50,700, apertureSize=3)
-    
+
      # Applica l'operazione di chiusura per chiudere eventuali lacune nei bordi
     kernel = np.ones((5,5),np.uint8)
     edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
-    
+
     # Trova le linee nell'immagine utilizzando la trasformata di Hough
     lines = cv2.HoughLinesP(edges, 0.1, np.pi / 180, threshold=100, minLineLength=150, maxLineGap=20)
 
@@ -152,8 +157,176 @@ for letter_info in predicted_letters:
 row_letters.append(sorted(current_row, key=lambda x: x[1]))  # Aggiungi l'ultima riga
 
 # Converte le lettere ordinate in una matrice di lettere
-predicted_matrix = [[letter_info[0] for letter_info in row] for row in row_letters]
+rooms = [[letter_info[0] for letter_info in row] for row in row_letters]
 
 print("Matrice delle lettere predette (ordine verticale):")
-for row in predicted_matrix:
+for row in rooms:
     print(row)
+
+
+
+class SmartVacuum(Problem):
+        def __init__(self, initial):
+            self.initial = "S"
+            self.goal = "F"
+            self.deny = "X"
+            self.clean = "C"
+            self.dirty = "D"
+            self.Vdirty = "V"
+            self.graph = None
+
+        def build_graph(self, rooms):
+          # Ottieni le dimensioni della matrice
+          rows, cols = len(rooms), len(rooms[0])
+         # Crea un grafo non diretto vuoto
+          G = nx.Graph()
+
+          # Aggiungi nodi e archi al grafo in base alle connessioni tra le stanze
+          for row in range(rows):
+              for col in range(cols):
+                 if rooms[row][col] != self.deny:
+                      G.add_node((row, col))  # Aggiungi il nodo corrispondente alla stanza
+
+                      # Aggiungi archi per connessioni valide a destra e in basso
+                      if col < cols - 1 and rooms[row][col + 1] != self.deny:
+                          G.add_edge((row, col), (row, col + 1))
+
+                      if row < rows - 1 and rooms[row + 1][col] != self.deny:
+                         G.add_edge((row, col), (row + 1, col))
+
+          return G
+
+
+        def actions(self, state):
+            robot_node, rooms = state
+            possible_actions = []
+
+            # Definisci azioni basate sulla posizione del robot e sullo stato delle stanze
+            # Ad esempio, se la stanza in cui si trova il robot è sporca, aggiungi 'clean'
+            # Se il robot può muoversi in una certa direzione, aggiungi 'move'
+            robot_row, robot_col = robot_node
+
+            if rooms[robot_row][robot_col] in [self.dirty, self.Vdirty]:
+                possible_actions.append("clean")
+
+            # Aggiungi azioni per il movimento in direzioni valide
+            neighbors = list(self.graph.neighbors(robot_node))
+            for neighbor_node in neighbors:
+              neighbor_row, neighbor_col = neighbor_node
+              if rooms[neighbor_row][neighbor_col] != self.deny:
+                  # Determina la direzione del movimento rispetto alla posizione attuale del robot
+                  if neighbor_row < robot_row:
+                      possible_actions.append("move_up")
+                  elif neighbor_row > robot_row:
+                      possible_actions.append("move_down")
+                  elif neighbor_col < robot_col:
+                      possible_actions.append("move_left")
+                  elif neighbor_col > robot_col:
+                      possible_actions.append("move_right")
+
+            return possible_actions
+
+
+        def result(self, state, action):
+            robot_node, rooms = state
+            robot_row, robot_col = robot_node
+
+            if action == "clean":
+                rooms[robot_row][robot_col] = self.clean
+
+            if action == "move_up":
+                robot_node = (robot_row - 1, robot_col)
+            elif action == "move_down":
+                robot_node = (robot_row + 1, robot_col)
+            elif action == "move_left":
+                robot_node = (robot_row, robot_col - 1)
+            elif action == "move_right":
+                robot_node = (robot_row, robot_col + 1)
+
+            return robot_node, rooms
+
+
+
+
+        def goal_test(self, state):
+          robot_row, robot_col, rooms = state
+
+          if rooms[robot_row][robot_col] == "F":
+              for row in range(len(rooms)):
+                  for col in range(len(rooms[0])):
+                      if rooms[row][col] in ["D", "V"]:
+                          print("[ERR] Ci sono stanze ancora sporche!")
+                          return False
+              print("Tutte le stanze sono pulite")
+              return True
+
+
+
+
+'''
+        def path_cost(self, c, state1, action, state2):
+            """Return the cost of a solution path that arrives at state2 from
+            state1 via action, assuming cost c to get up to state1. If the problem
+            is such that the path doesn't matter, this function will only look at
+            state2. If the path does matter, it will consider c and maybe state1
+            and action. The default method costs 1 for every step in the path."""
+            return c + 1
+
+        def value(self, state):
+            """For optimization problems, each state has a value. Hill Climbing
+            and related algorithms try to maximize this value."""
+            raise NotImplementedError
+
+'''
+
+#ALGORITMO BFS
+def tree_breadth_search_for_vis(problem):
+
+    # we use these two variables at the time of visualisations
+    iterations = 0
+    all_node_colors = []
+    node_colors = {k : 'white' for k in problem.graph.nodes()}
+
+    #Adding first node to the queue
+    frontier = deque([Node(problem.initial)])
+
+    node_colors[Node(problem.initial).state] = "orange"
+    iterations += 1
+    all_node_colors.append(dict(node_colors))
+
+    while frontier:
+        #Popping first node of queue
+        node = frontier.popleft()
+
+        # modify the currently searching node to red
+        node_colors[node.state] = "red"
+        iterations += 1
+        all_node_colors.append(dict(node_colors))
+
+        if problem.goal_test(node.state):
+            # modify goal node to green after reaching the goal
+            node_colors[node.state] = "green"
+            iterations += 1
+            all_node_colors.append(dict(node_colors))
+            return(iterations, all_node_colors, node)
+
+        frontier.extend(node.expand(problem))
+
+        for n in node.expand(problem):
+            node_colors[n.state] = "orange"
+            iterations += 1
+            all_node_colors.append(dict(node_colors))
+
+        # modify the color of explored nodes to gray
+        node_colors[node.state] = "gray"
+        iterations += 1
+        all_node_colors.append(dict(node_colors))
+
+    return None
+
+
+
+#AVVIO PROBLEMA E SOLUTORE
+vacuum_problem = SmartVacuum(Problem)
+initial_node = vacuum_problem.initial
+solution = tree_breadth_search_for_vis(initial_node)
