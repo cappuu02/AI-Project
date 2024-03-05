@@ -1,3 +1,16 @@
+
+
+# Verifica se matplotlib è installato
+spec = importlib.util.find_spec("matplotlib")
+if spec is None:
+    !pip install matplotlib
+
+# Verifica se keras-ocr è installato
+spec = importlib.util.find_spec("keras-ocr")
+if spec is None:
+    !pip install keras-ocr
+
+
 import sys
 import os
 import importlib.util
@@ -24,9 +37,13 @@ def remove_grid(image):
 
     return image
 
+def stampa_matrice(rooms):
+  for row in rooms:
+    print(row)
+
 image_name = input("Inserisci il nome dell'immagine: ")
-image_path = f'/content/drive/MyDrive/ModificheLuca/Immagini/{image_name}'
-model_path = f'/content/drive/MyDrive/ModificheLuca/Modello/MioModello'
+image_path = f'/content/drive/MyDrive/ProgettoAI/Immagini/{image_name}'
+model_path = f'/content/drive/MyDrive/ProgettoAI/Modello/MioModello'
 
 path = image_path
 image = cv2.imread(path)
@@ -81,8 +98,9 @@ row_letters.append(sorted(current_row, key=lambda x: x[1]))
 rooms = [[letter_info[0] for letter_info in row] for row in row_letters]
 
 print("Matrice delle lettere predette (ordine verticale):")
-for row in rooms:
-    print(row)
+stampa_matrice(rooms)
+
+print(rooms)
 
 class SmartVacuum(Problem):
     def __init__(self, initial):
@@ -96,57 +114,79 @@ class SmartVacuum(Problem):
         self.rooms = rooms
 
     def actions(self, state):
-      robot_node, rooms = state
+      
+      robot_node, room = state     
       possible_actions = []
+      robot_row, robot_col = room
 
-      robot_row, robot_col = robot_node
+      if robot_node in [self.dirty, self.Vdirty]:
 
-      if rooms[robot_row][robot_col] in [self.dirty, self.Vdirty]:
           possible_actions.append("clean")
 
-      if robot_row > 0 and rooms[robot_row - 1][robot_col] != self.deny:
-          possible_actions.append("move_up")
-      if robot_row < len(rooms) - 1 and rooms[robot_row + 1][robot_col] != self.deny:
-          possible_actions.append("move_down")
-      if robot_col > 0 and rooms[robot_row][robot_col - 1] != self.deny:
-          possible_actions.append("move_left")
-      if robot_col < len(rooms[0]) - 1 and rooms[robot_row][robot_col + 1] != self.deny:
-          possible_actions.append("move_right")
+      if robot_row > 0:
+          lettera = find_letter_position(rooms, state[1][0] - 1, state[1][1])
+          print(lettera)
+          if lettera != self.deny:
+              possible_actions.append("move_up")
 
+      if robot_row < len(rooms) - 1:
+          lettera = find_letter_position(rooms, state[1][0] + 1, state[1][1])
+          if(lettera) != self.deny:
+              possible_actions.append("move_down")
+
+      if robot_col > 0:
+          lettera = find_letter_position(rooms, state[1][0], state[1][1]- 1)
+          print(lettera)
+          if lettera != self.deny:
+              possible_actions.append("move_left")
+
+      if robot_col < len(rooms) - 1:
+          lettera = find_letter_position(rooms, state[1][0], state[1][1] + 1)
+          if lettera != self.deny:
+              possible_actions.append("move_right")
+
+
+      print(possible_actions)
       return possible_actions
 
+    def result(self, node, action):
 
+        state = node.robot_node
 
-    def result(self, state, action):
-        robot_node, rooms = state
-        robot_row, robot_col = robot_node
+        print(state)
+        print(action)
 
         if action == "clean":
-            rooms[robot_row][robot_col] = self.clean
+            update_letter_position(rooms, state[1][0],state[1][1], "C")
+            stampa_matrice(rooms)
 
         if action == "move_up":
-            robot_node = (robot_row - 1, robot_col)
-        elif action == "move_down":
-            robot_node = (robot_row + 1, robot_col)
-        elif action == "move_left":
-            robot_node = (robot_row, robot_col - 1)
-        elif action == "move_right":
-            robot_node = (robot_row, robot_col + 1)
-
-        return robot_node, rooms
+            lettera = find_letter_position(rooms, state[1][0] - 1, state[1][1])
+            robot_node = (lettera, state[1][0] - 1,state[1][1])
+        if action == "move_down":
+            lettera = find_letter_position(rooms, state[1][0] + 1, state[1][1])
+            robot_node = (lettera, state[1][0] + 1,state[1][1])
+        if action == "move_left":
+            lettera = find_letter_position(rooms, state[1][0], state[1][1] - 1)
+            robot_node = (lettera, state[1][0],state[1][1] - 1)
+        if action == "move_right":
+            lettera = find_letter_position(rooms, state[1][0] + 1, state[1][1] + 1)
+            robot_node = (lettera, state[1][0],state[1][1] + 1)
+        
+        print(robot_node)
+        return robot_node
 
     def goal_test(self, state):
-      robot_info, rooms = state
-      robot_letter, (robot_row, robot_col) = robot_info
-
-      if rooms[robot_row][robot_col] == self.goal:
-          for row in range(len(rooms)):
-              for col in range(len(rooms[0])):
-                  if rooms[row][col] in [self.dirty, self.Vdirty]:
-                      print("[ERR] Ci sono stanze ancora sporche!")
-                      return False
-          print("Tutte le stanze sono pulite")
-          return True
+        robot_info, rooms = state
+        if robot_info == self.goal:
+            for row in range(len(rooms)):
+                for col in range(len(rooms[0])):
+                    if rooms[row][col] in [self.dirty, self.Vdirty]:
+                        print("[ERR] Ci sono stanze ancora sporche!")
+                        return False
+            print("Tutte le stanze sono pulite")
+            return True
+        return False
 
 
 class Node:
@@ -172,15 +212,19 @@ class Node:
         return all_nodes
 
     def expand(self, problem):
-      return [self.child_node(problem, action)
-            for action in problem.actions(self.state)]
+
+           return [(self.child_node(problem, action).robot_node, self.child_node(problem, action).rooms)
+        for action in problem.actions(self.robot_node)]
 
 
 
     def child_node(self, problem, action):
+      
         next_state = problem.result(self, action)
-        next_node = Node(next_state.robot_node, next_state.rooms, self, action,
-                         problem.path_cost(self.path_cost, self, action, next_state))
+        print(next_state)
+        next_node = Node(next_state[0], next_state[1], self, action,
+                 problem.path_cost(self.path_cost, self, action, next_state))
+        print(next_node)
         return next_node
 
     def solution(self):
@@ -215,35 +259,53 @@ class Node:
 
 
 
-def breadth_first_search(problem):
-    initial_state = tuple(find_initial_position(problem.rooms)), tuple(tuple(row) for row in problem.rooms)
-    initial_node = Node(*initial_state)
+def breadth_search_first(problem):
+    initial_state = find_initial_position(problem.rooms)
+    print(initial_state)
+    initial_node = Node(initial_state, problem.rooms)  
+    print(initial_node)
     if problem.goal_test(initial_state):
         return initial_node
+
     frontier = deque([initial_node])
-    reached = {initial_state}
+    print(frontier)
+    explored = set()
+
+
     while frontier:
-        node = frontier.pop()
-        for child in node.expand(node, problem):
-            s = child.state
-            if problem.is_goal(s):
-                return child
-            if s not in reached:
-                reached.add(s)
-                frontier.appendleft(child)
-    return failure
+        node = frontier.popleft()
+        print("Current Node:", node)  # Stampa il nodo corrente
+        explored.add(node.robot_node)  
+        print(explored)
+        for child in node.expand(problem):  
+            print("-")
+            print(child)
+            print(child.robot_node)
+            if child.robot_node not in explored and child not in frontier:
+                if problem.goal_test(child.robot_node):  
+                    print("Last Expanded: ", node)
+                    print("# explored BFS: ", len(explored))
+                    return child
+                frontier.append(child)
+    return None
+
 
 def find_initial_position(rooms):
     for row_idx, row in enumerate(rooms):
         for col_idx, cell in enumerate(row):
             if cell == "S":
-                return ("S", (row_idx, col_idx))
+                position = (row_idx, col_idx)  # Aggiungi 1 agli indici per ottenere le coordinate basate su 1
+                return ("S", position)  # Ritorna una tupla con il simbolo e le coordinate
+        
     return None
 
+def find_letter_position(rooms, row, col):
+    return rooms[row][col]
+
+def update_letter_position(rooms, row, col, new_letter):
+    rooms[row][col] = new_letter
 
 
 # AVVIO PROBLEMA E SOLUTORE
 problema = SmartVacuum(Problem)
-solution = breadth_first_search(problema)
-
-
+solution = breadth_search_first(problema)
