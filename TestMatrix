@@ -32,7 +32,7 @@ def remove_grid(image):
     if lines is not None:
         for line in lines:
             x1, y1, x2, y2 = line[0]
-            cv2.line(image, (x1, y1), (x2, y2), (255, 255, 255), 20)
+            cv2.line(image, (x1, y1), (x2, y2), (255, 255, 255), 10)
 
     return image
 
@@ -147,6 +147,10 @@ class SmartVacuum(Problem):
           print(lettera)
           if lettera != self.deny:
               possible_actions.append("move_right")
+      
+      if len(possible_actions) == 0:
+          print ("Non c'è una soluzione")
+          sys.exit
 
 
       print(possible_actions)
@@ -176,6 +180,9 @@ class SmartVacuum(Problem):
         if action == "move_right":
             lettera = find_letter_position(rooms, room[0], room[1] + 1)
             robot_node = (lettera, (room[0], room[1] + 1))
+        
+        
+
       
 
         #return del nodo figlio che abbiamo scoperto dal padre
@@ -208,16 +215,6 @@ class Node:
     def __repr__(self):
       return f"<Node ('{self.robot_node}', {self.room})>"
 
-    def generate_all_nodes(self, problem):
-        all_nodes = []
-        frontier = deque([self])
-
-        while frontier:
-            node = frontier.popleft()
-            all_nodes.append(node)
-            frontier.extend(node.expand(problem))
-
-        return all_nodes
 
     def expand(self, problem):
         return [(self.child_node(problem, action))#uno per la posizione uno per il nodo effettivo
@@ -257,26 +254,6 @@ class Node:
             node = node.parent
         return list(reversed(path_back))
 
-    def apply_action(self, action):
-        new_node = Node(self.robot_node, [row[:] for row in self.rooms])
-        robot_row, robot_col = self.robot_node
-
-        if action == "clean":
-            new_node.rooms[robot_row][robot_col] = 'C'
-        elif action == "move_up":
-            new_node.robot_node = (robot_row - 1, robot_col)
-        elif action == "move_down":
-            new_node.robot_node = (robot_row + 1, robot_col)
-        elif action == "move_left":
-            new_node.robot_node = (robot_row, robot_col - 1)
-        elif action == "move_right":
-            new_node.robot_node = (robot_row, robot_col + 1)
-
-        return new_node
-
-    def __hash__(self):
-        return hash((self.robot_node, self.room))
-
 
 
 def breadth_search_first(problem):
@@ -297,8 +274,9 @@ def breadth_search_first(problem):
         node = frontier.popleft()#toglie primo nodo dalla frontiera
         print("Current Node:", node)  # Stampa il nodo corrente
         explored.add(node.robot_node) #aggiungi il nodo a quelli esplorati
+        print("Frontiera:", frontier)
         print('--')
-        print(explored)
+        print("Esplorati:", explored)
         print('--')
         for child, stato in node.expand(problem):
           print("AHHHHHH")
