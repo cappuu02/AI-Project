@@ -287,7 +287,7 @@ class Node:
 
 
 
-def breadth_search_first(problem):
+def BFS(problem):
     count = 0
     initial_state = find_initial_position(problem.rooms)
     state, room = initial_state
@@ -366,6 +366,15 @@ def breadth_search_first(problem):
     print("!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
     return print("Algoritmo usato: BFS")
 
+
+
+
+def A(problem):
+  NotImplemented
+
+
+
+
 #Funzione che Ritorna la posizione all'interno della matrice di S
 def find_initial_position(rooms):
     for row_idx, row in enumerate(rooms):
@@ -393,7 +402,21 @@ def count_dirty_rooms(rooms):
                 Vdirty_count += 3
     return dirty_count, Vdirty_count
 
+def choose_search_algorithm(problema):
+    valid_choices = {'bfs', 'a*','BFS','Bfs','A*','A','a'}
+    while True:
+        choice = input("Scegli l'algoritmo di ricerca (bfs o a*): ").strip().lower()
+        if choice in valid_choices:
+            if choice in ['bfs', 'BFS','Bfs']:
+              return BFS(problema)
+            if choice in ['a*','A*','A','a']:
+              return A(problema)
+        else:
+            print("Scelta non valida. Riprova.")
+
+# Esempio di utilizzo:
+
 
 # AVVIO PROBLEMA E SOLUTORE
 problema = SmartVacuum(Problem)
-solution = breadth_search_first(problema)
+solution = choose_search_algorithm(problema)
