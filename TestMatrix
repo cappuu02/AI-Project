@@ -91,23 +91,24 @@ contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX
 
 model = load_model(model_path)
 predicted_letters = []
-max_contour_area = 20000
+
 
 for contour in contours:
     contour_area = cv2.contourArea(contour)
-    min_contour_area = 50
-
-    if (contour_area > min_contour_area) & (contour_area < max_contour_area):
-        x, y, w, h = cv2.boundingRect(contour)
-        roi = binary_image[y:y+h, x:x+w]
-        roi_resized = cv2.resize(roi, (28, 28))
-        image_normalized = roi_resized / 255.0
-        input_data = image_normalized.reshape(1, 28, 28, 1)
-        predictions = model.predict(input_data)
-        predicted_value = np.argmax(predictions)
-        letter_mapping = {'S': 19, 'C': 3, 'X': 24, 'V': 22, 'D': 4, 'F': 6}
-        predicted_letter = [letter for letter, value in letter_mapping.items() if value == predicted_value][0]
-        predicted_letters.append((predicted_letter, x, y))
+   
+    x, y, w, h = cv2.boundingRect(contour)
+    
+    roi = binary_image[y:y+h, x:x+w]
+    roi_resized = cv2.resize(roi, (28, 28))
+    image_normalized = roi_resized / 255.0
+    input_data = image_normalized.reshape(1, 28, 28, 1)
+    
+    predictions = model.predict(input_data)
+    predicted_value = np.argmax(predictions)
+    
+    letter_mapping = {'S': 19, 'C': 3, 'X': 24, 'V': 22, 'D': 4, 'F': 6}
+    predicted_letter = [letter for letter, value in letter_mapping.items() if value == predicted_value][0]
+    predicted_letters.append((predicted_letter, x, y))
 
 predicted_letters.sort(key=lambda x: x[2])
 row_letters = []
