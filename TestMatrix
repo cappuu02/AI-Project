@@ -99,8 +99,6 @@ rooms = [[letter_info[0] for letter_info in row] for row in row_letters]
 print("Matrice delle lettere predette (ordine verticale):")
 stampa_matrice(rooms)
 
-print(rooms)
-
 class SmartVacuum(Problem):
     def __init__(self, initial):
         self.initial = "S"
@@ -129,47 +127,43 @@ class SmartVacuum(Problem):
       #Verifichiamo se l'azione UP è possibile
       if robot_row > 0:
           lettera = find_letter_position(rooms, room[0] - 1, room[1])#mi salvo la lettera sopra 
-          print(lettera)
           if lettera != self.deny:#se la lettera è doversa dalla X di deny allora posso eseguire l'azione
               possible_actions.append("move_up")#quindi, la aggiungo nella lista
 
       if robot_row < len(rooms) - 1:
           lettera = find_letter_position(rooms, room[0] + 1, room[1])
-          print(lettera)
           if(lettera) != self.deny:
               possible_actions.append("move_down")
 
       if robot_col > 0:
           lettera = find_letter_position(rooms, room[0], room[1] - 1)
-          print(lettera)
           if lettera != self.deny:
               possible_actions.append("move_left")
 
       if robot_col < len(rooms) - 1:
           lettera = find_letter_position(rooms, room[0], room[1] + 1)
-          print(lettera)
           if lettera != self.deny:
               possible_actions.append("move_right")
 
 
-      print(possible_actions)
       return possible_actions
 
     def result(self, node, action):
         #salva la lettera
         room = node.room
-        print("BROOM", room)
     
 
         if action == "clean":
             update_letter_position(rooms, room[0], room[1], "C")
-            node.path_cost += 1
+            
+            print("E'stata pulita una stanza: ")
             stampa_matrice(rooms)
             return None  # Indica che l'azione di pulizia è stata eseguita
 
         if action == "Vclean":
             update_letter_position(rooms, room[0], room[1], "C")
-            node.path_cost += 3
+            
+            print("E'stata pulita una stanza: ")
             stampa_matrice(rooms)
             return None  # Indica che l'azione di pulizia è stata eseguita
             
@@ -189,6 +183,7 @@ class SmartVacuum(Problem):
       
 
         #return del nodo figlio che abbiamo scoperto dal padre
+        
         return robot_node
 
     def goal_test(self, state):
@@ -199,7 +194,8 @@ class SmartVacuum(Problem):
                 for col in range(len(rooms)):
                     lettera = find_letter_position(rooms, row, col)
                     if lettera in [self.dirty, self.Vdirty]:
-                        print("[ERR] Ci sono stanze ancora sporche!")
+                        print("--")
+                        print("!!!!E' stata scoperta la destinazione finale ma ci sono ancora stanze sporche da pulire!!!!")
                         return False
             print("Tutte le stanze sono pulite, ecco la matrice finale pulita:")
             stampa_matrice(rooms)
@@ -219,17 +215,6 @@ class Node:
     def __repr__(self):
       return f"<Node ('{self.robot_node}', {self.room})>"
 
-    def generate_all_nodes(self, problem):
-        all_nodes = []
-        frontier = deque([self])
-
-        while frontier:
-            node = frontier.popleft()
-            all_nodes.append(node)
-            frontier.extend(node.expand(problem))
-
-        return all_nodes
-
     def expand(self, problem):
         return [(self.child_node(problem, action))#uno per la posizione uno per il nodo effettivo
           for action in problem.actions(self.robot_node, self.room)]#mi dice quali azioni posso fare dal nodo attuale
@@ -241,19 +226,11 @@ class Node:
         next_state = problem.result(self, action)#in next state salviamo il nodo figlio che ci viene dato dalla funzione result
 
         if next_state is None:
-            print(self)
-            print(self.robot_node)
-            print("PORCODIO")
             stato = ("'" + self.robot_node + "'", {self.room})
-            print(stato)
             return self, stato  # Se next_state è None, restituisci None sia per il nodo che per lo stato
 
         next_node = Node(next_state[0], next_state[1], self, action, problem.path_cost(self.path_cost, self, action, next_state))
         #next_node = Node(next_state[0], next_state[1], self, action, problem.path_cost(self.path_cost, self, action, next_state))#creazione nodo figlio che abbiamo scoperto
-        print("----------------------------------")
-        print(next_node)
-        print(next_state)
-        print("----------------------------------")
         
 
         return next_node, next_state
@@ -268,22 +245,6 @@ class Node:
             node = node.parent
         return list(reversed(path_back))
 
-    def apply_action(self, action):
-        new_node = Node(self.robot_node, [row[:] for row in self.rooms])
-        robot_row, robot_col = self.robot_node
-
-        if action == "clean":
-            new_node.rooms[robot_row][robot_col] = 'C'
-        elif action == "move_up":
-            new_node.robot_node = (robot_row - 1, robot_col)
-        elif action == "move_down":
-            new_node.robot_node = (robot_row + 1, robot_col)
-        elif action == "move_left":
-            new_node.robot_node = (robot_row, robot_col - 1)
-        elif action == "move_right":
-            new_node.robot_node = (robot_row, robot_col + 1)
-
-        return new_node
 
     def __hash__(self):
         return hash((self.robot_node, self.room))
@@ -295,39 +256,42 @@ def breadth_search_first(problem):
     print(initial_state)
     state, room = initial_state
     initial_node = Node(state, room)
+    
     if problem.goal_test(initial_state):
         return initial_node
     #crea la frontiera e aggiungi il primo nodo (initial)
     frontier = deque([initial_node])
+    dirty_count, Vdirty_count = count_dirty_rooms(rooms)
     print("Frontiera:",frontier)
     #lista dei nodi esplorati
     explored = set()
 
     #finchè c'è qualcosa nella frontiera
     while frontier:
+        
+        print('--')
         print("Frontiera pre pop:",frontier)
         node = frontier.popleft()#toglie primo nodo dalla frontiera
         print("Frontiera post pop:",frontier)
-        print("Current Node:", node)  # Stampa il nodo corrente
+        print(node.path_cost)
+        
         if problem.goal_test((node.robot_node, (node.room))):
             print("Nodo Finale: ", node)
             print("Costo Path: ", node.path_cost)
+            print("Costo Path: ", node.path_cost + dirty_count + Vdirty_count)
             return node
         explored.add(node.room) #aggiungi il nodo a quelli esplorati
-        print('--')
+        
         print("Esplorati: ", explored)
-        print('--')
+        print("Current Node:", node)  # Stampa il nodo corrente
+        stampa_matrice(rooms)
+        
         for child, stato in node.expand(problem):
-          print("AHHHHHH")
-         
-          print(child)
-          print(child.room)
-          print([node.room for node in frontier])
-          print("AHHHHHH")
           if child.room not in explored and child.room not in [node.room for node in frontier]:
               if problem.goal_test(stato):
                   print("Nodo Finale: ", child)
                   print("Costo Path: ", child.path_cost)
+                  print("Costo Path: ", child.path_cost + dirty_count + Vdirty_count)
                   return child
               frontier.append(child)
     return print("Soluzione non presente, cambiare matrice")
@@ -347,6 +311,18 @@ def find_letter_position(rooms, row, col):
 
 def update_letter_position(rooms, row, col, new_letter):
     rooms[row][col] = new_letter
+
+def count_dirty_rooms(rooms):
+    dirty_count = 0
+    Vdirty_count = 0
+    for row in rooms:
+        for cell in row:
+            if cell == "D":
+                dirty_count += 1
+            elif cell == "V":
+                Vdirty_count += 3
+    return dirty_count, Vdirty_count
+
 
 
 # AVVIO PROBLEMA E SOLUTORE
