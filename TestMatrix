@@ -120,8 +120,11 @@ class SmartVacuum(Problem):
       robot_row, robot_col = room
 
 
-      if node in [self.dirty, self.Vdirty]:
+      if node in [self.dirty]:
           possible_actions.append("clean")
+
+      if node in [self.Vdirty]:
+          possible_actions.append("Vclean")
 
       #Verifichiamo se l'azione UP è possibile
       if robot_row > 0:
@@ -147,10 +150,6 @@ class SmartVacuum(Problem):
           print(lettera)
           if lettera != self.deny:
               possible_actions.append("move_right")
-      
-      if len(possible_actions) == 0:
-          print ("Non c'è una soluzione")
-          sys.exit
 
 
       print(possible_actions)
@@ -164,6 +163,13 @@ class SmartVacuum(Problem):
 
         if action == "clean":
             update_letter_position(rooms, room[0], room[1], "C")
+            node.path_cost += 1
+            stampa_matrice(rooms)
+            return None  # Indica che l'azione di pulizia è stata eseguita
+
+        if action == "Vclean":
+            update_letter_position(rooms, room[0], room[1], "C")
+            node.path_cost += 3
             stampa_matrice(rooms)
             return None  # Indica che l'azione di pulizia è stata eseguita
             
@@ -180,9 +186,6 @@ class SmartVacuum(Problem):
         if action == "move_right":
             lettera = find_letter_position(rooms, room[0], room[1] + 1)
             robot_node = (lettera, (room[0], room[1] + 1))
-        
-        
-
       
 
         #return del nodo figlio che abbiamo scoperto dal padre
@@ -211,10 +214,21 @@ class Node:
         self.parent = parent
         self.action = action
         self.path_cost = path_cost
+        
 
     def __repr__(self):
       return f"<Node ('{self.robot_node}', {self.room})>"
 
+    def generate_all_nodes(self, problem):
+        all_nodes = []
+        frontier = deque([self])
+
+        while frontier:
+            node = frontier.popleft()
+            all_nodes.append(node)
+            frontier.extend(node.expand(problem))
+
+        return all_nodes
 
     def expand(self, problem):
         return [(self.child_node(problem, action))#uno per la posizione uno per il nodo effettivo
@@ -254,6 +268,26 @@ class Node:
             node = node.parent
         return list(reversed(path_back))
 
+    def apply_action(self, action):
+        new_node = Node(self.robot_node, [row[:] for row in self.rooms])
+        robot_row, robot_col = self.robot_node
+
+        if action == "clean":
+            new_node.rooms[robot_row][robot_col] = 'C'
+        elif action == "move_up":
+            new_node.robot_node = (robot_row - 1, robot_col)
+        elif action == "move_down":
+            new_node.robot_node = (robot_row + 1, robot_col)
+        elif action == "move_left":
+            new_node.robot_node = (robot_row, robot_col - 1)
+        elif action == "move_right":
+            new_node.robot_node = (robot_row, robot_col + 1)
+
+        return new_node
+
+    def __hash__(self):
+        return hash((self.robot_node, self.room))
+
 
 
 def breadth_search_first(problem):
@@ -265,30 +299,38 @@ def breadth_search_first(problem):
         return initial_node
     #crea la frontiera e aggiungi il primo nodo (initial)
     frontier = deque([initial_node])
-    print(frontier)
+    print("Frontiera:",frontier)
     #lista dei nodi esplorati
     explored = set()
 
     #finchè c'è qualcosa nella frontiera
     while frontier:
+        print("Frontiera pre pop:",frontier)
         node = frontier.popleft()#toglie primo nodo dalla frontiera
+        print("Frontiera post pop:",frontier)
         print("Current Node:", node)  # Stampa il nodo corrente
-        explored.add(node.robot_node) #aggiungi il nodo a quelli esplorati
-        print("Frontiera:", frontier)
+        if problem.goal_test((node.robot_node, (node.room))):
+            print("Nodo Finale: ", node)
+            print("Costo Path: ", node.path_cost)
+            return node
+        explored.add(node.room) #aggiungi il nodo a quelli esplorati
         print('--')
-        print("Esplorati:", explored)
+        print("Esplorati: ", explored)
         print('--')
         for child, stato in node.expand(problem):
           print("AHHHHHH")
+         
           print(child)
+          print(child.room)
+          print([node.room for node in frontier])
           print("AHHHHHH")
-          if child not in explored and child not in frontier:
-                if problem.goal_test(stato):
-                    print("Last Expanded: ", node)
-                    print("# explored BFS: ", len(explored))
-                    return child
-                frontier.append(child)
-    return None
+          if child.room not in explored and child.room not in [node.room for node in frontier]:
+              if problem.goal_test(stato):
+                  print("Nodo Finale: ", child)
+                  print("Costo Path: ", child.path_cost)
+                  return child
+              frontier.append(child)
+    return print("Soluzione non presente, cambiare matrice")
 
 #Funzione che Ritorna la posizione all'interno della matrice di S
 def find_initial_position(rooms):
