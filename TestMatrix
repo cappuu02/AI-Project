@@ -10,6 +10,14 @@ spec = importlib.util.find_spec("keras-ocr")
 if spec is None:
     !pip install keras-ocr
 
+# Verifica se ipywidgets è installato
+spec = importlib.util.find_spec("ipywidgets")
+if spec is None:
+    !pip install ipywidgets
+
+
+from ipywidgets import interact, widgets
+from IPython.display import clear_output
 
 import sys
 import os
@@ -21,6 +29,7 @@ import matplotlib.pyplot as plt
 from utils import *
 from search import Problem
 from collections import deque
+
 
 
 def remove_grid(image):
@@ -35,6 +44,19 @@ def remove_grid(image):
             cv2.line(image, (x1, y1), (x2, y2), (255, 255, 255), 10)
 
     return image
+
+# Funzione per mostrare l'immagine
+def show_image(image):
+    plt.imshow(image, cmap='gray')
+    plt.axis('off')
+    plt.show()
+
+# Widget per caricare e visualizzare l'immagine
+def load_and_display_image(image_name):
+    image = cv2.imread(image_name)
+    image_without_grid = remove_grid(image)
+    show_image(image_without_grid)
+    return image_without_grid
 
 def stampa_matrice(rooms):
     rows, cols = len(rooms), len(rooms[0])
@@ -54,370 +76,374 @@ def stampa_matrice(rooms):
         for col in range(cols):
             print(rooms[row][col], end=" ")
         print()
-
-def check_SF(rooms):
-    S_count = 0
-    F_count = 0
-    for row in rooms:
-        for cell in row:
-            if cell == "S":
-                S_count += 1
-            elif cell == "F":
-                F_count += 1
-    if S_count != 1 or F_count != 1:
-        print("--")
-        print("--")
-        print("!!!!Matrice invalida, richiesta matrice con unica sorgente(S) e destinazione finale(F)...!!!!")
-        sys.exit(0)
-
-image_name = input("Inserisci il nome dell'immagine: ")
-image_path = f'/content/drive/MyDrive/ProgettoAI/Immagini/{image_name}'
-model_path = f'/content/drive/MyDrive/ProgettoAI/Modello/MioModello'
-
-path = image_path
-image = cv2.imread(path)
-image_without_grid = remove_grid(image)
-gray_image = cv2.cvtColor(image_without_grid, cv2.COLOR_BGR2GRAY)
-
-plt.imshow(image_without_grid, cmap='gray')
-plt.axis('off')
-plt.show()
-
-resized_image = cv2.resize(gray_image, (0, 0), fx=0.5, fy=0.5)
-blurred_image = cv2.GaussianBlur(resized_image, (5, 5), 0)
-_, binary_image = cv2.threshold(blurred_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-binary_image = cv2.bitwise_not(binary_image)
-contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-model = load_model(model_path)
-predicted_letters = []
-
-
-for contour in contours:
-    contour_area = cv2.contourArea(contour)
-   
-    x, y, w, h = cv2.boundingRect(contour)
     
-    roi = binary_image[y:y+h, x:x+w]
-    roi_resized = cv2.resize(roi, (28, 28))
-    image_normalized = roi_resized / 255.0
-    input_data = image_normalized.reshape(1, 28, 28, 1)
+
+# Widget di avvio programma
+clear_output()
+def run_program(image_name, search_algorithm):
+    image_without_grid = load_and_display_image(image_name)
     
-    predictions = model.predict(input_data)
-    predicted_value = np.argmax(predictions)
+
+    def check_SF(rooms):    
+        S_count = 0
+        F_count = 0
+        for row in rooms:
+            for cell in row:
+                if cell == "S":
+                    S_count += 1
+                elif cell == "F":
+                    F_count += 1
+        if S_count != 1 or F_count != 1:
+            print("--")
+            print("--")
+            print("!!!!Matrice invalida, richiesta matrice con unica sorgente(S) e destinazione finale(F)...!!!!")
+            return False
+        return True
     
-    letter_mapping = {'S': 19, 'C': 3, 'X': 24, 'V': 22, 'D': 4, 'F': 6}
-    predicted_letter = [letter for letter, value in letter_mapping.items() if value == predicted_value][0]
-    predicted_letters.append((predicted_letter, x, y))
+    model_path = f'/content/drive/MyDrive/ProgettoAI/Modello/MioModello'
 
-predicted_letters.sort(key=lambda x: x[2])
-row_letters = []
-current_row = []
-prev_y = None
+    gray_image = cv2.cvtColor(image_without_grid, cv2.COLOR_BGR2GRAY)
 
-for letter_info in predicted_letters:
-    _, _, y = letter_info
-    if prev_y is None or abs(y - prev_y) < 30:
-        current_row.append(letter_info)
-    else:
-        row_letters.append(sorted(current_row, key=lambda x: x[1]))
-        current_row = [letter_info]
-    prev_y = y
+    resized_image = cv2.resize(gray_image, (0, 0), fx=0.5, fy=0.5)
+    blurred_image = cv2.GaussianBlur(resized_image, (5, 5), 0)
+    _, binary_image = cv2.threshold(blurred_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    binary_image = cv2.bitwise_not(binary_image)
+    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-row_letters.append(sorted(current_row, key=lambda x: x[1]))
-rooms = [[letter_info[0] for letter_info in row] for row in row_letters]
-print("")
-print("Matrice delle lettere predette:")
-stampa_matrice(rooms)
-print("")
-print("")
-check_SF(rooms)
+    model = load_model(model_path)
+    predicted_letters = []
 
-class SmartVacuum(Problem):
-    def __init__(self, initial):
-        self.initial = "S"
-        self.goal = "F"
-        self.deny = "X"
-        self.clean = "C"
-        self.dirty = "D"
-        self.Vdirty = "V"
-        self.graph = None
-        self.rooms = rooms
+    for contour in contours:
+        contour_area = cv2.contourArea(contour)
 
-    def actions(self, node, room):
+        x, y, w, h = cv2.boundingRect(contour)
 
+        roi = binary_image[y:y+h, x:x+w]
+        roi_resized = cv2.resize(roi, (28, 28))
+        image_normalized = roi_resized / 255.0
+        input_data = image_normalized.reshape(1, 28, 28, 1)
 
-      #robot_node = lettera e rooms = coordinate x/y
-      possible_actions = []
-      robot_row, robot_col = room
+        predictions = model.predict(input_data)
+        predicted_value = np.argmax(predictions)
 
+        letter_mapping = {'S': 19, 'C': 3, 'X': 24, 'V': 22, 'D': 4, 'F': 6}
+        predicted_letter = [letter for letter, value in letter_mapping.items() if value == predicted_value][0]
+        predicted_letters.append((predicted_letter, x, y))
 
-      if node in [self.dirty]:
-          possible_actions.append("clean")
+    predicted_letters.sort(key=lambda x: x[2])
+    row_letters = []
+    current_row = []
+    prev_y = None
 
-      if node in [self.Vdirty]:
-          possible_actions.append("Vclean")
+    for letter_info in predicted_letters:
+        _, _, y = letter_info
+        if prev_y is None or abs(y - prev_y) < 30:
+            current_row.append(letter_info)
+        else:
+            row_letters.append(sorted(current_row, key=lambda x: x[1]))
+            current_row = [letter_info]
+        prev_y = y
 
-      #Verifichiamo se l'azione UP è possibile
-      if robot_row > 0:
-          lettera = find_letter_position(rooms, room[0] - 1, room[1])#mi salvo la lettera sopra
-          if lettera != self.deny:#se la lettera è doversa dalla X di deny allora posso eseguire l'azione
-              possible_actions.append("move_up")#quindi, la aggiungo nella lista
-
-      if robot_row < len(rooms) - 1:
-          lettera = find_letter_position(rooms, room[0] + 1, room[1])
-          if(lettera) != self.deny:
-              possible_actions.append("move_down")
-
-      if robot_col > 0:
-          lettera = find_letter_position(rooms, room[0], room[1] - 1)
-          if lettera != self.deny:
-              possible_actions.append("move_left")
-
-      if robot_col < len(rooms) - 1:
-          lettera = find_letter_position(rooms, room[0], room[1] + 1)
-          if lettera != self.deny:
-              possible_actions.append("move_right")
-
-
-      return possible_actions
-
-    def result(self, node, action):
-        #salva la lettera
-        room = node.room
-
-
-        if action == "clean":
-            update_letter_position(rooms, room[0], room[1], "C")
-            print("")
-            print("Pulisco la stanza",room,"con costo 1 (D->C):")
-
-            stampa_matrice(rooms)
-            print("")
-            return None  # Indica che l'azione di pulizia è stata eseguita
-
-        if action == "Vclean":
-            update_letter_position(rooms, room[0], room[1], "C")
-            print("")
-            print("Pulisco la stanza",room,"con costo 3 (V->C):")
-
-            stampa_matrice(rooms)
-            print("")
-            return None  # Indica che l'azione di pulizia è stata eseguita
-
-
-        if action == "move_up":
-            lettera = find_letter_position(rooms, room[0] - 1, room[1])
-            robot_node = (lettera, (room[0] - 1, room[1]))#state[1][1] = il primo [1] mi identifica la seconda tupla mentre il secondo [0] mi identifica il primo elemento della seconda tupla
-        if action == "move_down":
-            lettera = find_letter_position(rooms, room[0] + 1, room[1])
-            robot_node = (lettera, (room[0] + 1, room[1]))
-        if action == "move_left":
-            lettera = find_letter_position(rooms, room[0], room[1] - 1)
-            robot_node = (lettera, (room[0], room[1] - 1))
-        if action == "move_right":
-            lettera = find_letter_position(rooms, room[0], room[1] + 1)
-            robot_node = (lettera, (room[0], room[1] + 1))
-
-
-        #return del nodo figlio che abbiamo scoperto dal padre
-
-        return robot_node
-
-    def goal_test(self, state):
-        #robot_info = lettera, rooms = coordinate x/y
-        robot_info, room = state
-        if robot_info == self.goal:
-            for row in range(len(rooms)):
-                for col in range(len(rooms)):
-                    lettera = find_letter_position(rooms, row, col)
-                    if lettera in [self.dirty, self.Vdirty]:
-
-                        print("!!!!E' stata esplorata la destinazione finale(F) ma ci sono ancora stanze sporche da pulire!!!!")
-                        return False
-            print("")
-            print("Tutte le stanze sono pulite(C), ecco la matrice finale:")
-            stampa_matrice(rooms)
-            print("")
-            return True
-        return False
-
-
-class Node:
-    def __init__(self, robot_node, room, parent = None, action = None, path_cost = 0):
-        self.robot_node = robot_node
-        self.room = room
-        self.parent = parent
-        self.action = action
-        self.path_cost = path_cost
-
-
-    def __repr__(self):
-      return f"<Node ('{self.robot_node}', {self.room})>"
-
-    def expand(self, problem):
-        return [(self.child_node(problem, action))#uno per la posizione uno per il nodo effettivo
-          for action in problem.actions(self.robot_node, self.room)]#mi dice quali azioni posso fare dal nodo attuale
-          #for viene eseguito prima del return perchè result lavora con action
-
-
-
-    def child_node(self, problem, action):
-        next_state = problem.result(self, action)#in next state salviamo il nodo figlio che ci viene dato dalla funzione result
-
-        if next_state is None:
-            stato = ("'" + self.robot_node + "'", {self.room})
-            return self, stato  # Se next_state è None, restituisci None sia per il nodo che per lo stato
-
-        next_node = Node(next_state[0], next_state[1], self, action, problem.path_cost(self.path_cost, self, action, next_state))
-        #next_node = Node(next_state[0], next_state[1], self, action, problem.path_cost(self.path_cost, self, action, next_state))#creazione nodo figlio che abbiamo scoperto
-
-
-        return next_node, next_state
-
-    def path(self):
-        node, path_back = self, []
-        while node:
-            path_back.append(node)
-            node = node.parent
-        return list(reversed(path_back))
-
-
-    def __hash__(self):
-        return hash((self.robot_node, self.room))
-
-
-
-def BFS(problem):
-    count = 0
-    initial_state = find_initial_position(problem.rooms)
-    state, room = initial_state
-    initial_node = Node(state, room)
-
-    if problem.goal_test(initial_state):
-        return initial_node
-    #crea la frontiera e aggiungi il primo nodo (initial)
-    frontier = deque([initial_node])
-    dirty_count, Vdirty_count = count_dirty_rooms(rooms)
-    print("--")
-    print("--")
-    print("Startup Algoritmo: ")
-    print("Frontiera:" ,frontier)
-    #lista dei nodi esplorati
-    explored = set()
-    print("Esplorati: " , explored)
-    print("Nodo Corrente: ", None)  # Stampa il nodo corrente
+    row_letters.append(sorted(current_row, key=lambda x: x[1]))
+    rooms = [[letter_info[0] for letter_info in row] for row in row_letters]
     print("")
-    print("Matrice Corrente: ")
+    print("Matrice delle lettere predette:")
     stampa_matrice(rooms)
     print("")
+    print("")
+    SF = check_SF(rooms)
 
-    #finchè c'è qualcosa nella frontiera
-    while frontier:
+    class SmartVacuum(Problem):
+        def __init__(self, initial):
+            self.initial = "S"
+            self.goal = "F"
+            self.deny = "X"
+            self.clean = "C"
+            self.dirty = "D"
+            self.Vdirty = "V"
+            self.graph = None
+            self.rooms = rooms
+            self.h = None
 
-        print('--')
+        def actions(self, node, room):
+            #robot_node = lettera e rooms = coordinate x/y
+            possible_actions = []
+            robot_row, robot_col = room
+
+            if node in [self.dirty]:
+                possible_actions.append("clean")
+
+            if node in [self.Vdirty]:
+                possible_actions.append("Vclean")
+
+            #Verifichiamo se l'azione UP è possibile
+            if robot_row > 0:
+                lettera = find_letter_position(rooms, room[0] - 1, room[1])
+                if lettera != self.deny:
+                    possible_actions.append("move_up")
+
+            if robot_row < len(rooms) - 1:
+                lettera = find_letter_position(rooms, room[0] + 1, room[1])
+                if(lettera) != self.deny:
+                    possible_actions.append("move_down")
+
+            if robot_col > 0:
+                lettera = find_letter_position(rooms, room[0], room[1] - 1)
+                if lettera != self.deny:
+                    possible_actions.append("move_left")
+
+            if robot_col < len(rooms) - 1:
+                lettera = find_letter_position(rooms, room[0], room[1] + 1)
+                if lettera != self.deny:
+                    possible_actions.append("move_right")
+
+            return possible_actions
+
+        def result(self, node, action):
+            #salva la lettera
+            room = node.room
+
+            if action == "clean":
+                update_letter_position(rooms, room[0], room[1], "C")
+                print("")
+                print("Pulisco la stanza",room,"con costo 1 (D->C):")
+                stampa_matrice(rooms)
+                print("")
+                return None  # Indica che l'azione di pulizia è stata eseguita
+
+            if action == "Vclean":
+                update_letter_position(rooms, room[0], room[1], "C")
+                print("")
+                print("Pulisco la stanza",room,"con costo 3 (V->C):")
+                stampa_matrice(rooms)
+                print("")
+                return None  # Indica che l'azione di pulizia è stata eseguita
+
+            if action == "move_up":
+                lettera = find_letter_position(rooms, room[0] - 1, room[1])
+                robot_node = (lettera, (room[0] - 1, room[1]))
+            if action == "move_down":
+                lettera = find_letter_position(rooms, room[0] + 1, room[1])
+                robot_node = (lettera, (room[0] + 1, room[1]))
+            if action == "move_left":
+                lettera = find_letter_position(rooms, room[0], room[1] - 1)
+                robot_node = (lettera, (room[0], room[1] - 1))
+            if action == "move_right":
+                lettera = find_letter_position(rooms, room[0], room[1] + 1)
+                robot_node = (lettera, (room[0], room[1] + 1))
+
+            return robot_node
+
+        def goal_test(self, state):
+            #robot_info = lettera, rooms = coordinate x/y
+            robot_info, room = state
+            if robot_info == self.goal:
+                for row in range(len(rooms)):
+                    for col in range(len(rooms)):
+                        lettera = find_letter_position(rooms, row, col)
+                        if lettera in [self.dirty, self.Vdirty]:
+                            print("!!!!E' stata esplorata la destinazione finale(F) ma ci sono ancora stanze sporche da pulire!!!!")
+                            return False
+                print("")
+                print("Tutte le stanze sono pulite(C), ecco la matrice finale:")
+                stampa_matrice(rooms)
+                print("")
+                return True
+            return False
+
+    class Node:
+        def __init__(self, robot_node, room, parent = None, action = None, path_cost = 0):
+            self.robot_node = robot_node
+            self.room = room
+            self.parent = parent
+            self.action = action
+            self.path_cost = path_cost
+
+        def __repr__(self):
+            return f"<Node ('{self.robot_node}', {self.room})>"
+
+        def expand(self, problem):
+            return [(self.child_node(problem, action))
+                for action in problem.actions(self.robot_node, self.room)]
+
+        def child_node(self, problem, action):
+            next_state = problem.result(self, action)
+
+            if next_state is None:
+                stato = ("'" + self.robot_node + "'", {self.room})
+                return self, stato
+
+            next_node = Node(next_state[0], next_state[1], self, action, problem.path_cost(self.path_cost, self, action, next_state))
+
+            return next_node, next_state
+
+        def path(self):
+            node, path_back = self, []
+            while node:
+                path_back.append(node)
+                node = node.parent
+            return list(reversed(path_back))
+
+        def __hash__(self):
+            return hash((self.robot_node, self.room))
+
+    def BFS(problem):
+        count = 0
+        initial_state = find_initial_position(problem.rooms)
+        state, room = initial_state
+        initial_node = Node(state, room)
+
+        if problem.goal_test(initial_state):
+            return initial_node
+
+        frontier = deque([initial_node])
+        dirty_count, Vdirty_count = count_dirty_rooms(rooms)
         print("--")
-        count += 1
-        print("Iterazione (while): ", count)
-        print("Frontiera pre pop: ",frontier)
-        node = frontier.popleft()#toglie primo nodo dalla frontiera
-        print("Frontiera post pop: ",frontier)
-
-        if problem.goal_test((node.robot_node, (node.room))):
-            print("--")
-            print("Output Algoritmo: ")
-            print("Nodo Finale: ", node)
-            print("Percorso dei nodi: ")
-            for node in node.path():
-                print(node.room, " Azione per arrivare al nodo: ",node.action)
-            print("Costo Path distanza: ", node.path_cost)
-            print("Costo Pulizia(dirty): ", dirty_count)
-            print("Costo Pulizia(Vdirty): ", Vdirty_count)
-            print("Costo totale: ", node.path_cost + dirty_count + Vdirty_count)
-            print("Algoritmo usato: BFS")
-            return node
-        explored.add(node.room) #aggiungi il nodo a quelli esplorati
-
-        print("Esplorati: ", explored)
-        print("Nodo Corrente: ", node)  # Stampa il nodo corrente
+        print("--")
+        print("Startup Algoritmo: ")
+        print("Frontiera:" ,frontier)
+        explored = set()
+        print("Esplorati: " , explored)
+        print("Nodo Corrente: ", None)
         print("")
         print("Matrice Corrente: ")
         stampa_matrice(rooms)
         print("")
 
-        for child, stato in node.expand(problem):
-          if child.room not in explored and child.room not in [node.room for node in frontier]:
-              if problem.goal_test(stato):
-                  print("--")
-                  print("Output Algoritmo: ")
-                  print("Nodo Finale: ", child)
-                  print("Percorso dei nodi: ")
-                  for node in node.path():
-                      print(node.room, " Azione per arrivare al nodo: ",node.action)
-                  print("Costo Path distanza: ", child.path_cost)
-                  print("Costo Pulizia(dirty): ", dirty_count)
-                  print("Costo Pulizia(Vdirty) ", Vdirty_count)
-                  print("Costo totale: ", child.path_cost + dirty_count + Vdirty_count)
-                  print("Algoritmo usato: BFS")
-                  return child
-              frontier.append(child)
-    print("--")
-    print("--")
-    print("Output Algoritmo: ")
-    print("!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
-    return print("Algoritmo usato: BFS")
+        while frontier:
+            print('--')
+            print("--")
+            count += 1
+            print("Iterazione (while): ", count)
+            print("Frontiera pre pop: ",frontier)
+            node = frontier.popleft()
+            print("Frontiera post pop: ",frontier)
+
+            if problem.goal_test((node.robot_node, (node.room))):
+                print("--")
+                print("Output Algoritmo: ")
+                print("Nodo Finale: ", node)
+                print("Percorso dei nodi: ")
+                for node in node.path():
+                    print(node.room, " Azione per arrivare al nodo: ",node.action)
+                print("Costo Path distanza: ", node.path_cost)
+                print("Costo Pulizia(dirty): ", dirty_count)
+                print("Costo Pulizia(Vdirty): ", Vdirty_count)
+                print("Costo totale: ", node.path_cost + dirty_count + Vdirty_count)
+                print("Algoritmo usato: BFS")
+                return node
+            explored.add(node.room)
+
+            print("Esplorati: ", explored)
+            print("Nodo Corrente: ", node)
+            print("")
+            print("Matrice Corrente: ")
+            stampa_matrice(rooms)
+            print("")
+
+            for child, stato in node.expand(problem):
+                if child.room not in explored and child.room not in [node.room for node in frontier]:
+                    if problem.goal_test(stato):
+                        print("--")
+                        print("Output Algoritmo: ")
+                        print("Nodo Finale: ", child)
+                        print("Percorso dei nodi: ")
+                        for node in node.path():
+                            print(node.room, " Azione per arrivare al nodo: ",node.action)
+                        print("Costo Path distanza: ", child.path_cost)
+                        print("Costo Pulizia(dirty): ", dirty_count)
+                        print("Costo Pulizia(Vdirty) ", Vdirty_count)
+                        print("Costo totale: ", child.path_cost + dirty_count + Vdirty_count)
+                        print("Algoritmo usato: BFS")
+                        return child
+                    frontier.append(child)
+        print("--")
+        print("--")
+        print("Output Algoritmo: ")
+        print("!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
+        return print("Algoritmo usato: BFS")
+
+    def bestFirst_search_graph(problem,f):
+        initial_state = find_initial_position(problem.rooms)
+        
+        state, room = initial_state
+        initial_node = Node(state, room)
+
+        if problem.goal_test(initial_state):
+            return node
+
+        f = memoize(f, 'f')
+        frontier = PriorityQueue('min',f)
+        frontier.append(initial_node)
+        explored = set()
+        print("Frontier Best-First: ")
+        while frontier:
+            node = frontier.pop()
+            if problem.goal_test(node.state):
+                print("Last Expanded: ",node,"with f = ",node.f)
+                print("#Explored: ",len(explored))
+                return node
+            explored.add(node.state)
+
+            for child in node.expand(problem):
+
+                if child.state not in explored and child not in frontier:
+                    frontier.append(child)
+                    print(child,"with f = ",child.f, ", h = ",child.h, " and g = ",child.path_cost)
+                elif child in frontier:
+                    inc= frontier.get_item(child)
+                    if f(child) < f(inc):
+                        del frontier[inc]
+                        frontier.append(child)
+                        print(inc,", ",inc.f," -- replaced by ",child,", ",child.f)
+        return None
+
+    def ASTAR(problem, h=None):
+        h = memoize(h or problem.h, 'h')
+        return bestFirst_search_graph(problem, lambda node : h(node)+node.path_cost)
+
+    if(SF == True):
+        problema = SmartVacuum(Problem)
+        if(search_algorithm == "BFS"):
+            return BFS(problema)
+        if(search_algorithm == "ASTAR"):
+            return ASTAR(problema)
 
 
+# Creazione dei widget
+clear_output()
+# Ottieni la lista dei file nella cartella Immagini
+image_folder = '/content/drive/MyDrive/ProgettoAI/Immagini'
+image_files = os.listdir(image_folder)
 
+# Widget per selezionare il nome dell'immagine
+image_name_widget = widgets.Dropdown(options=image_files, description="Nome immagine:")
 
-def A(problem):
-  NotImplemented
+# Rimuovi l'estensione dal nome del file per rendere più pulita la visualizzazione nel widget
+image_name_widget.options = [filename.split('.')[0] for filename in image_files]
 
+search_algorithm_widget = widgets.Dropdown(options=['BFS', 'ASTAR'], description='Algoritmo di ricerca:')
+run_button = widgets.Button(description="Esegui programma")
 
+# Widget per l'output
+output_text = widgets.Output()
 
+# Funzione di callback per il pulsante di esecuzione
+def on_run_button_clicked(b):
+    with output_text:
+        clear_output()  # Pulisci l'output precedente
+        # Aggiungi l'estensione al nome del file selezionato
+        selected_image_name = image_name_widget.value + '.png'
+        # Ora puoi utilizzare selected_image_name nel resto del codice
+        image_path = os.path.join(image_folder, selected_image_name)
+        run_program(image_path, search_algorithm_widget.value)
 
-#Funzione che Ritorna la posizione all'interno della matrice di S
-def find_initial_position(rooms):
-    for row_idx, row in enumerate(rooms):
-        for col_idx, cell in enumerate(row):
-            if cell == "S":
-                position = (row_idx, col_idx)  # Aggiungi 1 agli indici per ottenere le coordinate basate su 1
-                return ("S", position)  # Ritorna una tupla con il simbolo e le coordinate
+run_button.on_click(on_run_button_clicked)
 
-    return None
+# Layout dei widget
+input_widgets = widgets.VBox([image_name_widget, search_algorithm_widget, run_button])
+output_widgets = widgets.VBox([widgets.Label('Output del programma:'), output_text])
 
-def find_letter_position(rooms, row, col):
-    return rooms[row][col]
+# Visualizzazione dei widget
+display(widgets.HBox([input_widgets, output_widgets]))
 
-def update_letter_position(rooms, row, col, new_letter):
-    rooms[row][col] = new_letter
-
-def count_dirty_rooms(rooms):
-    dirty_count = 0
-    Vdirty_count = 0
-    for row in rooms:
-        for cell in row:
-            if cell == "D":
-                dirty_count += 1
-            elif cell == "V":
-                Vdirty_count += 3
-    return dirty_count, Vdirty_count
-
-def choose_search_algorithm(problema):
-    valid_choices = {'bfs', 'a*','BFS','Bfs','A*','A','a'}
-    while True:
-        choice = input("Scegli l'algoritmo di ricerca (bfs o a*): ").strip().lower()
-        if choice in valid_choices:
-            if choice in ['bfs', 'BFS','Bfs']:
-              return BFS(problema)
-            if choice in ['a*','A*','A','a']:
-              return A(problema)
-        else:
-            print("Scelta non valida. Riprova.")
-
-# Esempio di utilizzo:
-
-
-# AVVIO PROBLEMA E SOLUTORE
-problema = SmartVacuum(Problem)
-solution = choose_search_algorithm(problema)
