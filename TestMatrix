@@ -15,6 +15,13 @@ spec = importlib.util.find_spec("ipywidgets")
 if spec is None:
     !pip install ipywidgets
 
+# Verifica se networkx è installato
+spec = importlib.util.find_spec("networkx")
+if spec is None:
+    !pip install networkx
+
+
+
 
 from ipywidgets import interact, widgets
 from IPython.display import clear_output
@@ -26,6 +33,7 @@ from keras.models import load_model
 import numpy as np
 from google.colab import drive
 import matplotlib.pyplot as plt
+import networkx as nx
 from utils import *
 from search import Problem
 from collections import deque
@@ -99,6 +107,7 @@ def run_program(image_name, search_algorithm):
             print("!!!!Matrice invalida, richiesta matrice con unica sorgente(S) e destinazione finale(F)...!!!!")
             return False
         return True
+    
     
     model_path = f'/content/drive/MyDrive/ProgettoAI/Modello/MioModello'
 
@@ -331,6 +340,7 @@ def run_program(image_name, search_algorithm):
                 print("Costo Pulizia(Vdirty): ", Vdirty_count)
                 print("Costo totale: ", node.path_cost + dirty_count + Vdirty_count)
                 print("Algoritmo usato: BFS")
+                print_graph(problem)
                 return node
             explored.add(node.room)
 
@@ -355,6 +365,7 @@ def run_program(image_name, search_algorithm):
                         print("Costo Pulizia(Vdirty) ", Vdirty_count)
                         print("Costo totale: ", child.path_cost + dirty_count + Vdirty_count)
                         print("Algoritmo usato: BFS")
+                        
                         return child
                     frontier.append(child)
         print("--")
@@ -401,13 +412,47 @@ def run_program(image_name, search_algorithm):
     def ASTAR(problem, h=None):
         h = memoize(h or problem.h, 'h')
         return bestFirst_search_graph(problem, lambda node : h(node)+node.path_cost)
+    
 
-    if(SF == True):
-        problema = SmartVacuum(Problem)
-        if(search_algorithm == "BFS"):
-            return BFS(problema)
-        if(search_algorithm == "ASTAR"):
-            return ASTAR(problema)
+    #Funzione che Ritorna la posizione all'interno della matrice di S
+    def find_initial_position(rooms):
+        for row_idx, row in enumerate(rooms):
+            for col_idx, cell in enumerate(row):
+                if cell == "S":
+                    position = (row_idx, col_idx)  # Aggiungi 1 agli indici per ottenere le coordinate basate su 1
+                    return ("S", position)  # Ritorna una tupla con il simbolo e le coordinate
+
+        return None
+
+    def find_letter_position(rooms, row, col):
+        return rooms[row][col]
+
+    def update_letter_position(rooms, row, col, new_letter):
+        rooms[row][col] = new_letter
+
+    def count_dirty_rooms(rooms):
+        dirty_count = 0
+        Vdirty_count = 0
+        for row in rooms:
+            for cell in row:
+                if cell == "D":
+                    dirty_count += 1
+                elif cell == "V":
+                    Vdirty_count += 3
+        return dirty_count, Vdirty_count
+
+        if(SF == True):
+            problema = SmartVacuum(Problem)
+            if(search_algorithm == "BFS"):
+                result = BFS(problema)
+                return result
+
+            
+            if(search_algorithm == "ASTAR"):
+                result = ASTAR(problema)
+                return result
+    
+    
 
 
 # Creazione dei widget
