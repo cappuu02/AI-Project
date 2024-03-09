@@ -174,21 +174,27 @@ def run_program(image_name, search_algorithm):
             self.graph = None
             self.h = None
 
-        def actions(self, state, room, node):
-            deterministic_prob = 0.9  # Probabilità di scegliere un'azione deterministica invece di una randomica
-            #robot_node = lettera e rooms = coordinate x/y
+        def actions(self, state, room, node, deterministic):
             possible_actions = []
-            fixed_actions = []
+            if(not deterministic):
+                fixed_actions = []
+                static = ["clean", "Vclean"]
+                remaining_actions = []
+                deterministic_prob = 0.6  # Probabilità di scegliere un'azione deterministica invece di una randomica
+
             robot_row, robot_col = room
 
             if state in [self.dirty]:
-                possible_actions.append("clean")
-                fixed_actions.append("clean")
+                    possible_actions.append("clean")
+                    if(not deterministic):
+                        fixed_actions.append("clean")
 
 
             if state in [self.Vdirty]:
-                possible_actions.append("Vclean")
-                fixed_actions.append("Vclean")
+                    possible_actions.append("Vclean")
+                    if(not deterministic):
+                        fixed_actions.append("Vclean")
+                
 
 
             #Verifichiamo se l'azione UP è possibile
@@ -211,23 +217,27 @@ def run_program(image_name, search_algorithm):
                 lettera = find_letter_position(node, room[0], room[1] + 1)
                 if lettera != self.deny:
                     possible_actions.append("move_right")
-            
-        
 
-            # Lista delle azioni rimanenti
-            remaining_actions = [action for action in possible_actions if action not in fixed_actions]
+            if(not deterministic):
+                # Lista delle azioni rimanenti
+                print("Azione possibiliR", possible_actions)
+                remaining_actions = [action for action in possible_actions if action not in static]
+                print("Azione RimanentiR", remaining_actions)
 
-            # Mischiare le azioni rimanenti
-            
-
-            # Decide se utilizzare l'azione randomica o una deterministica
-            if remaining_actions and random.random() < deterministic_prob:
-                random.shuffle(remaining_actions)
-
-            # Unione delle liste di azioni fisse e rimanenti
-            actions = fixed_actions + remaining_actions
-
-            return actions
+                # Mischiare le azioni rimanenti
+                # Decide se utilizzare l'azione randomica o una deterministica
+                if remaining_actions and random.random() >= deterministic_prob:
+                    random.shuffle(remaining_actions)
+                    print("Azione RimanentiR shuffle", remaining_actions)
+                
+                
+                possible_actions_R = fixed_actions + remaining_actions
+                print("Azione Possibili FinaliR", possible_actions_R)
+                return possible_actions_R
+                
+            if(deterministic):
+                 print("Azione possibiliD", possible_actions)
+                 return possible_actions
 
         def result(self, node, action, explored, frontier, problem):
             #salva la lettera
@@ -293,15 +303,15 @@ def run_program(image_name, search_algorithm):
             self.parent = parent
             self.action = action
             self.path_cost = path_cost
-            self.frontier = frontier
+            self.frontier = frontier or deque()
             self.explored = explored
 
         def __repr__(self):
             return f"<Node ('{self.robot_node}', {self.room}, {self.rooms})>"
 
-        def expand(self, problem, node, explored, frontier):
+        def expand(self, problem, node, explored, frontier, deterministic):
             return [(self.child_node(problem, action, explored, node, frontier))
-                for action in problem.actions(self.robot_node, self.room, node)]
+                for action in problem.actions(self.robot_node, self.room, node, deterministic)]
 
         def child_node(self, problem, action, explored, node, frontier):
             next_state = problem.result(node, action, explored, frontier, problem)
@@ -331,15 +341,16 @@ def run_program(image_name, search_algorithm):
         def __hash__(self):
             return hash((self.robot_node, self.room))
 
-    def BFS(problem):
-        max_count = len(rooms) * len(rooms) * 3  # Esempio: 100 volte la dimensione della matrice
+    def BFS(problem, deterministic):
+        max_count = len(rooms) * len(rooms) * 3 
         count = 0
+        if(not deterministic):
+            nodi_finali = []
+
         initial_state = find_initial_position(rooms)
         state, room = initial_state
         node = Node(state, room, rooms)
-        if problem.goal_test(initial_state, node):
-            return node
-
+    
         node.frontier.append(node)
         dirty_count, Vdirty_count = count_dirty_rooms(rooms)
         print("--")
@@ -354,7 +365,6 @@ def run_program(image_name, search_algorithm):
         stampa_matrice(node.rooms)
         print("")
 
-        final_nodes = []
 
         while node.frontier and count < max_count:
             print('--')
@@ -366,7 +376,9 @@ def run_program(image_name, search_algorithm):
             print("Frontiera post pop: ",node.frontier)
 
             if problem.goal_test((node.robot_node, (node.room)), node):
-                final_nodes.append(node)  # Aggiungi il nodo finale trovato alla lista dei nodi finali
+          
+                return node, dirty_count, Vdirty_count
+              
                 
             
             node.explored.add(node.room)
@@ -378,36 +390,12 @@ def run_program(image_name, search_algorithm):
             stampa_matrice(node.rooms)
             print("")
 
-            for child, stato in node.expand(problem, node, node.explored, node.frontier):
+            for child, stato in node.expand(problem, node, node.explored, node.frontier, deterministic):
                 if child != None and child.room not in node.explored and (child.robot_node, child.room) not in [(node.robot_node, node.room) for node in node.frontier]:
                     
                     node.frontier.append(child)
-        
-        if (final_nodes):
-            count = 0
-            best_node = min(final_nodes, key=lambda node: node.path_cost)
-            print("--")
-            print("Output Algoritmo: ")
-            print("Nodo Finale: ", best_node)
-            print("Percorso dei nodi: ")
-            for node in best_node.path():
-                print(node.room, " Azione per arrivare al nodo: ",node.action)
-            for node in best_node.path():
-                count += 1
-                print("Matrice ",count," :", stampa_matrice(node.rooms))
-            print("Costo Path distanza: ", best_node.path_cost)
-            print("Costo Pulizia(dirty): ", dirty_count)
-            print("Costo Pulizia(Vdirty): ", Vdirty_count)
-            print("Costo totale: ", best_node.path_cost + dirty_count + Vdirty_count)
-            print("Algoritmo usato: BFS")
-        else:
-
-            print("--")
-            print("--")
-            print("Output Algoritmo: ")
-            print("!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
-            print("Algoritmo usato: BFS")
-        
+            
+        return None, dirty_count, Vdirty_count
 
 
     def bestFirst_search_graph(problem,f):
@@ -467,6 +455,31 @@ def run_program(image_name, search_algorithm):
     def update_letter_position(node, row, col, new_letter):
         node.rooms[row][col] = new_letter
 
+    def stampa_output(final_node, dirty_count, Vdirty_count, deterministic):
+            count = 0
+            print('--')
+            print("--")
+            print("Output Algoritmo: ")
+            print("Nodo Finale: ", final_node)
+            print("Percorso dei nodi: ")
+            for node in final_node.path():
+                print(node.room, " Azione per arrivare al nodo: ",node.action)
+            print("--")
+            for node in final_node.path():
+                count += 1
+                print("")
+                print("Passo: ", count)
+                stampa_matrice(node.rooms)
+                print("--")
+            print("Costo Path distanza: ", final_node.path_cost)
+            print("Costo Pulizia(dirty): ", dirty_count)
+            print("Costo Pulizia(Vdirty): ", Vdirty_count)
+            print("Costo totale: ", final_node.path_cost + dirty_count + Vdirty_count)
+            if(deterministic == True):
+                print("Algoritmo usato: BFS Deterministica")
+            else:
+                print("Algoritmo usato: BFS Randomica")
+
     def count_dirty_rooms(rooms):
         dirty_count = 0
         Vdirty_count = 0
@@ -509,8 +522,53 @@ def run_program(image_name, search_algorithm):
     if(SF == True):
         problema = SmartVacuum(Problem)
         if(search_algorithm == "BFS"):
-            result = BFS(problema)
-            return result
+            final_nodes = []
+            nodo_best = None
+            
+
+            nodo_deterministico, dirty_count, Vdirty_count = BFS(problema, True)
+
+            nodo_randomico, dirty_count, Vdirty_count = BFS(problema, False)
+
+            print('--')
+            print("--")
+            print("Scelta migliore algoritmo: ")
+
+            if(nodo_deterministico != None):
+                final_nodes.append(nodo_deterministico)
+                print("Costo Nodo Deterministico: ", nodo_deterministico.path_cost)
+            else:
+                print("Costo Nodo Deterministico: ", None)
+
+            if(nodo_randomico != None):
+                final_nodes.append(nodo_randomico)
+                print("Costo Nodo Randomico: ", nodo_randomico.path_cost)
+            else:
+                print("Costo Nodo Randomico: ", None)
+            
+            if(nodo_deterministico != None):
+                nodo_best = nodo_deterministico
+                deterministic = True
+            if(nodo_randomico != None):
+                nodo_best = nodo_randomico
+                deterministic = False
+            if(nodo_deterministico != None and nodo_randomico != None):
+                nodo_best = min(final_nodes, key=lambda node: node.path_cost)
+                if(nodo_best.path_cost == nodo_deterministico.path_cost):
+                    deterministic = True
+  
+
+                print("Costo migliore: ", nodo_best.path_cost)
+            
+            if(nodo_best != None):
+                print(nodo_best)
+                stampa_output(nodo_best, dirty_count, Vdirty_count, deterministic)
+            else:
+                print("--")
+                print("--")
+                print("Output Algoritmo: ")
+                print("!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
+                print("Algoritmo usato: BFS Deterministica e BFS Randomica")
 
 
         if(search_algorithm == "ASTAR"):
@@ -556,4 +614,3 @@ output_widgets = widgets.VBox([widgets.Label('Output del programma:'), output_te
 
 # Visualizzazione dei widget
 display(widgets.HBox([input_widgets, output_widgets]))
-
