@@ -1,43 +1,19 @@
 import importlib.util
-
-# Verifica se matplotlib è installato
-spec = importlib.util.find_spec("matplotlib")
-if spec is None:
-    !pip install matplotlib
-
-# Verifica se keras-ocr è installato
-spec = importlib.util.find_spec("keras-ocr")
-if spec is None:
-    !pip install keras-ocr
-
-# Verifica se ipywidgets è installato
-spec = importlib.util.find_spec("ipywidgets")
-if spec is None:
-    !pip install ipywidgets
-
-# Verifica se networkx è installato
-spec = importlib.util.find_spec("networkx")
-if spec is None:
-    !pip install networkx
-
-
-
-
-from ipywidgets import interact, widgets
-from IPython.display import clear_output
-
 import sys
 import os
 import cv2
 from keras.models import load_model
 import numpy as np
-from google.colab import drive
 import matplotlib.pyplot as plt
 import networkx as nx
 from utils import *
 from search import Problem
 from collections import deque
 import random
+import math
+import copy
+import queue
+
 
 
 
@@ -87,8 +63,7 @@ def stampa_matrice(rooms):
         print()
 
 
-# Widget di avvio programma
-clear_output()
+
 def run_program(image_name, search_algorithm):
     image_without_grid = load_and_display_image(image_name)
 
@@ -194,7 +169,7 @@ def run_program(image_name, search_algorithm):
                     possible_actions.append("Vclean")
                     if(not deterministic):
                         fixed_actions.append("Vclean")
-                
+
 
 
             #Verifichiamo se l'azione UP è possibile
@@ -229,12 +204,12 @@ def run_program(image_name, search_algorithm):
                 if remaining_actions and random.random() >= deterministic_prob:
                     random.shuffle(remaining_actions)
                     print("Azione RimanentiR shuffle", remaining_actions)
-                
-                
+
+
                 possible_actions_R = fixed_actions + remaining_actions
                 print("Azione Possibili FinaliR", possible_actions_R)
                 return possible_actions_R
-                
+
             if(deterministic):
                  print("Azione possibiliD", possible_actions)
                  return possible_actions
@@ -250,18 +225,18 @@ def run_program(image_name, search_algorithm):
                 print("Pulisco la stanza",room,"con costo 1 (D->C):")
                 stampa_matrice(node.rooms)
                 print("")
-             
+
 
                 return None  # Indica che l'azione di pulizia è stata eseguita
 
-            if action == "Vclean":  
+            if action == "Vclean":
 
                 update_letter_position(node, room[0], room[1], "C")
                 print("")
                 print("Pulisco la stanza",room,"con costo 3 (V->C):")
                 stampa_matrice(node.rooms)
                 print("")
-                
+
 
                 return None  # Indica che l'azione di pulizia è stata eseguita
 
@@ -294,6 +269,29 @@ def run_program(image_name, search_algorithm):
                     return False
             return False
 
+        def h_find(self, node):
+
+            stanza_corrente = node.room
+            dirty_vacuumed = all(find_letter_position(node, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in range(len(rooms[row])))
+            if(dirty_vacuumed):
+                stanza_obbiettivo = find_terminal_position(node.rooms)
+            else:
+                stanza_obbiettivo = find_nearest_dirty(node, node.rooms, stanza_corrente)
+            # Supponiamo che gli stati siano rappresentati come tuple di coordinate (x, y)
+            x1, y1 = stanza_corrente
+            x2, y2 = stanza_obbiettivo
+
+            x1 = int(x1)
+            x2 = int(x2)
+            y1 = int(y1)
+            y2 = int(y2)
+
+
+            #Calcola la distanza euclidea
+            distanza_euclidea = math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+            print("Euristica: ", distanza_euclidea)
+
+            return distanza_euclidea
 
     class Node:
         def __init__(self, robot_node, room, rooms, parent = None, action = None, path_cost = 0, frontier = deque(), explored = set()):
@@ -326,7 +324,7 @@ def run_program(image_name, search_algorithm):
             next_frontier = frontier.copy()  # Copia la frontiera locale
             next_explored = explored.copy()  # Copia gli stati esplorati locali
 
-       
+
             next_node = Node(next_state[0], next_state[1], next_rooms, self, action, problem.path_cost(self.path_cost, self, action, next_state), next_frontier, next_explored)
 
             return next_node, next_state
@@ -341,8 +339,59 @@ def run_program(image_name, search_algorithm):
         def __hash__(self):
             return hash((self.robot_node, self.room))
 
+
+    class NodeA:
+        def __init__(self, robot_node, room, rooms, f, parent = None, action = None, path_cost = 0, frontier = PriorityQueue(), explored = set()):
+            self.robot_node = robot_node
+            self.room = room
+            self.rooms = rooms
+            self.f = f
+            self.parent = parent
+            self.action = action
+            self.path_cost = path_cost
+            self.frontier = frontier or PriorityQueue()
+            self.explored = explored
+        
+        def __lt__(self, other):
+            return self.f < other.f
+
+        def __repr__(self):
+            return f"<Node ('{self.robot_node}', {self.room}, {self.rooms})>"
+
+        def expand(self, problem, node, explored, frontier, f, deterministic):
+            return [(self.child_node(problem, action, explored, node, frontier, f))
+                for action in problem.actions(self.robot_node, self.room, node, deterministic)]
+
+        def child_node(self, problem, action, explored, node, frontier, f):
+            next_state = problem.result(node, action, explored, frontier, problem)
+
+
+            if next_state is None:
+                stato = ("'" + self.robot_node + "'", {self.room})
+                return None, None
+
+
+            next_rooms = [row[:] for row in self.rooms]  # Crea una copia della matrice per il child node
+            next_frontier = copy.deepcopy(frontier)  # Copia la frontiera locale
+            next_explored = explored.copy()  # Copia gli stati esplorati locali
+            next_f = copy.deepcopy(f)
+
+            next_node = NodeA(next_state[0], next_state[1], next_rooms, next_f, self, action, problem.path_cost(self.path_cost, self, action, next_state), next_frontier, next_explored)
+
+            return next_node, next_state
+
+        def path(self):
+            node, path_back = self, []
+            while node:
+                path_back.append(node)
+                node = node.parent
+            return list(reversed(path_back))
+
+        def __hash__(self):
+            return hash((self.robot_node, self.room))
+
     def BFS(problem, deterministic):
-        max_count = len(rooms) * len(rooms) * 3 
+        max_count = len(rooms) * len(rooms) * 3
         count = 0
         if(not deterministic):
             nodi_finali = []
@@ -350,7 +399,7 @@ def run_program(image_name, search_algorithm):
         initial_state = find_initial_position(rooms)
         state, room = initial_state
         node = Node(state, room, rooms)
-    
+
         node.frontier.append(node)
         dirty_count, Vdirty_count = count_dirty_rooms(rooms)
         print("--")
@@ -376,11 +425,11 @@ def run_program(image_name, search_algorithm):
             print("Frontiera post pop: ",node.frontier)
 
             if problem.goal_test((node.robot_node, (node.room)), node):
-          
+
                 return node, dirty_count, Vdirty_count
-              
-                
-            
+
+
+
             node.explored.add(node.room)
 
             print("Esplorati: ", node.explored)
@@ -392,50 +441,55 @@ def run_program(image_name, search_algorithm):
 
             for child, stato in node.expand(problem, node, node.explored, node.frontier, deterministic):
                 if child != None and child.room not in node.explored and (child.robot_node, child.room) not in [(node.robot_node, node.room) for node in node.frontier]:
-                    
+
                     node.frontier.append(child)
-            
+
         return None, dirty_count, Vdirty_count
 
-
+    #f è l'euristica
     def bestFirst_search_graph(problem,f):
-        initial_state = find_initial_position(problem.rooms)
+        print("Euristica: ", f)
+        initial_state = find_initial_position(rooms)
 
         state, room = initial_state
-        initial_node = Node(state, room)
-
-        if problem.goal_test(initial_state):
-            return node
-
         f = memoize(f, 'f')
-        frontier = PriorityQueue('min',f)
-        frontier.append(initial_node)
-        explored = set()
+        node = NodeA(state, room, rooms, f)
+        dirty_count, Vdirty_count = count_dirty_rooms(rooms)
+
+
+
+        node.frontier.append(node)
+
         print("Frontier Best-First: ")
-        while frontier:
-            node = frontier.pop()
-            if problem.goal_test(node.state):
-                print("Last Expanded: ",node,"with f = ",node.f)
-                print("#Explored: ",len(explored))
-                return node
-            explored.add(node.state)
+        while node.frontier:
+            deterministic = True
+            node = node.frontier.pop()
+            f = problem.h_find(node)
+            if problem.goal_test((node.robot_node, (node.room)), node):
+                stampa_output(node, dirty_count, Vdirty_count, deterministic)
+                return print("Path euristica: ", node.path_cost + f)
+            node.explored.add(node.room)
 
-            for child in node.expand(problem):
+            for child, stato in node.expand(problem, node, node.explored, node.frontier, f, deterministic = True):
 
-                if child.state not in explored and child not in frontier:
-                    frontier.append(child)
-                    print(child,"with f = ",child.f, ", h = ",child.h, " and g = ",child.path_cost)
-                elif child in frontier:
-                    inc= frontier.get_item(child)
+
+                if child != None and child.room not in node.explored and not node.frontier.__contains__((child.robot_node, child.room)):
+                    node.frontier.append(child)
+                    print(child,"with f = ",child.f, ", h = ",child.path_cost, " and g = ",child.path_cost + child.f)
+                elif child in node.frontier:
+                    inc= node.frontier.get_item(child)
                     if f(child) < f(inc):
-                        del frontier[inc]
-                        frontier.append(child)
+                        del node.frontier[inc]
+                        node.frontier.append(child)
                         print(inc,", ",inc.f," -- replaced by ",child,", ",child.f)
         return None
 
     def ASTAR(problem, h=None):
-        h = memoize(h or problem.h, 'h')
-        return bestFirst_search_graph(problem, lambda node : h(node)+node.path_cost)
+        # Se la funzione euristica h non è specificata, viene utilizzata la funzione h predefinita del problema.
+        # La funzione memoize viene utilizzata per memorizzare i risultati della funzione euristica h al fine di migliorare le prestazioni.
+        h = memoize(problem.h, 'h')
+        print(h)
+        return bestFirst_search_graph(problem, lambda node : problem.h_find(node)+node.path_cost)
 
 
 
@@ -446,6 +500,16 @@ def run_program(image_name, search_algorithm):
                 if cell == "S":
                     position = (row_idx, col_idx)  # Aggiungi 1 agli indici per ottenere le coordinate basate su 1
                     return ("S", position)  # Ritorna una tupla con il simbolo e le coordinate
+
+        return None
+
+    #Funzione che Ritorna la posizione all'interno della matrice di S
+    def find_terminal_position(rooms):
+        for row_idx, row in enumerate(rooms):
+            for col_idx, cell in enumerate(row):
+                if cell == "F":
+                    position = (row_idx, col_idx)  # Aggiungi 1 agli indici per ottenere le coordinate basate su 1
+                    return (position)  # Ritorna una tupla con il simbolo e le coordinate
 
         return None
 
@@ -491,10 +555,51 @@ def run_program(image_name, search_algorithm):
                     Vdirty_count += 3
         return dirty_count, Vdirty_count
 
+    def find_nearest_dirty(node, rooms, current_room):
+        nearest_dirty_room = None
+        nearest_distance = float('inf')  # Inizializzo la distanza al massimo valore possibile
+
+        for row_idx, row in enumerate(rooms):
+            for col_idx, cell in enumerate(row):
+
+
+                if cell == "D" or cell == "V":  # Verifica se la stanza è sporca
+                    room = (row_idx, col_idx)
+                    distance = calculate_distance(current_room, room)
+
+                    if distance < nearest_distance and not next_room_deadend(node, room) == True:
+                        nearest_distance = distance
+                        nearest_dirty_room = room
+
+                    if distance < nearest_distance and not next_room_deadend(node, room) == False:
+                        nearest_dirty_room = room
+                        return nearest_dirty_room
+
+        return nearest_dirty_room
+
+
+    def calculate_distance(room1, room2):
+        # Calcola la distanza euclidea tra due stanze
+        return math.sqrt((room1[0] - room2[0]) ** 2 + (room1[1] - room2[1]) ** 2)
+
+    def next_room_deadend(node, room):
+        robot_row, robot_col = room
+
+        # Verifica se il robot è bloccato in tutte e quattro le direzioni
+        up_blocked = robot_row == 0 or find_letter_position(node, room[0] - 1, room[1]) == "X"
+        down_blocked = robot_row >= len(rooms) - 1 or find_letter_position(node, room[0] + 1, room[1]) == "X"
+        left_blocked = robot_col == 0 or find_letter_position(node, room[0], room[1] - 1) == "X"
+        right_blocked = robot_col >= len(rooms) - 1 or find_letter_position(node, room[0], room[1] + 1) == "X"
+
+        if(up_blocked == True and down_blocked == True and left_blocked == True and right_blocked == True):
+            return True
+
+        else:
+            return False
 
     def robot_stuck(node, explored):
         robot_row, robot_col = node.room
-    
+
         # Verifica se il robot è bloccato in tutte e quattro le direzioni
         up_blocked = robot_row == 0 or find_letter_position(node, node.room[0] - 1, node.room[1]) == "X" or (node.room[0] - 1, node.room[1]) in explored
         down_blocked = robot_row >= len(rooms) - 1 or find_letter_position(node, node.room[0] + 1, node.room[1]) == "X" or (node.room[0] + 1, node.room[1]) in explored
@@ -515,7 +620,7 @@ def run_program(image_name, search_algorithm):
             if(right_blocked == True and robot_col < len(rooms) - 1 and find_letter_position(node, node.room[0], node.room[1] + 1) != "X"):
                 node.explored.remove((node.room[0], node.room[1] + 1))
                 print("Ho rimosso",(node.room[0], node.room[1] + 1),"dagli esplorati per permettere al robot di spostarsi")
-        
+
 
 
 
@@ -524,7 +629,7 @@ def run_program(image_name, search_algorithm):
         if(search_algorithm == "BFS"):
             final_nodes = []
             nodo_best = None
-            
+
 
             nodo_deterministico, dirty_count, Vdirty_count = BFS(problema, True)
 
@@ -545,7 +650,7 @@ def run_program(image_name, search_algorithm):
                 print("Costo Nodo Randomico: ", nodo_randomico.path_cost)
             else:
                 print("Costo Nodo Randomico: ", None)
-            
+
             if(nodo_deterministico != None):
                 nodo_best = nodo_deterministico
                 deterministic = True
@@ -556,10 +661,10 @@ def run_program(image_name, search_algorithm):
                 nodo_best = min(final_nodes, key=lambda node: node.path_cost)
                 if(nodo_best.path_cost == nodo_deterministico.path_cost):
                     deterministic = True
-  
+
 
                 print("Costo migliore: ", nodo_best.path_cost)
-            
+
             if(nodo_best != None):
                 print(nodo_best)
                 stampa_output(nodo_best, dirty_count, Vdirty_count, deterministic)
@@ -575,42 +680,5 @@ def run_program(image_name, search_algorithm):
             result = ASTAR(problema)
             return result
 
-
-
-
-# Creazione dei widget
-clear_output()
-# Ottieni la lista dei file nella cartella Immagini
-image_folder = '/content/drive/MyDrive/ProgettoAI/Immagini'
-image_files = os.listdir(image_folder)
-
-# Widget per selezionare il nome dell'immagine
-image_name_widget = widgets.Dropdown(options=image_files, description="Nome immagine:")
-
-# Rimuovi l'estensione dal nome del file per rendere più pulita la visualizzazione nel widget
-image_name_widget.options = [filename.split('.')[0] for filename in image_files]
-
-search_algorithm_widget = widgets.Dropdown(options=['BFS', 'ASTAR'], description='Algoritmo di ricerca:')
-run_button = widgets.Button(description="Esegui programma")
-
-# Widget per l'output
-output_text = widgets.Output()
-
-# Funzione di callback per il pulsante di esecuzione
-def on_run_button_clicked(b):
-    with output_text:
-        clear_output()  # Pulisci l'output precedente
-        # Aggiungi l'estensione al nome del file selezionato
-        selected_image_name = image_name_widget.value + '.png'
-        # Ora puoi utilizzare selected_image_name nel resto del codice
-        image_path = os.path.join(image_folder, selected_image_name)
-        run_program(image_path, search_algorithm_widget.value)
-
-run_button.on_click(on_run_button_clicked)
-
-# Layout dei widget
-input_widgets = widgets.VBox([image_name_widget, search_algorithm_widget, run_button])
-output_widgets = widgets.VBox([widgets.Label('Output del programma:'), output_text])
-
-# Visualizzazione dei widget
-display(widgets.HBox([input_widgets, output_widgets]))
+image_name = ('/content/drive/MyDrive/ProgettoAI/Immagini/matrice1.png')
+run_program(image_name, 'ASTAR')
