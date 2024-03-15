@@ -963,32 +963,44 @@ import tkinter as tk
 from tkinter import filedialog
 from PIL import Image, ImageTk
 import numpy as np
-
+from ttkthemes import ThemedStyle
 
 class ImageProcessingApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Image Processing App")
-        self.root.geometry("1920x1080")
+        self.root.geometry("1200x1000")
 
         self.image_path = ""
-        self.image_label = tk.Label(self.root)
-        self.image_label.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.BOTH, expand=True)
+        self.image_label = tk.Label(self.root, bg="light gray")
+        self.image_label.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
-        self.output_label = tk.Label(self.root)
-        self.output_label.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.BOTH, expand=True)
+        self.output_label = tk.Label(self.root, bg="light gray")
+        self.output_label.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
         button_frame = tk.Frame(self.root)
-        button_frame.pack(side=tk.TOP, pady=10)
+        button_frame.grid(row=0, column=0, columnspan=2, pady=10)
 
-        self.load_button = tk.Button(button_frame, text="Carica Immagine", command=self.load_image)
-        self.load_button.pack(side=tk.TOP, padx=500)
+        self.load_button = tk.Button(button_frame, text="Carica Immagine", command=self.load_image, width=15, height=2)
+        self.load_button.grid(row=0, column=0, padx=5)
 
-        self.bfs_button = tk.Button(button_frame, text="BFS", command=self.run_bfs)
-        self.bfs_button.pack(side=tk.TOP, padx=500)
+        self.bfs_button = tk.Button(button_frame, text="BFS", command=self.run_bfs, width=15, height=2)
+        self.bfs_button.grid(row=0, column=1, padx=5)
 
-        self.astar_button = tk.Button(button_frame, text="A*", command=self.run_astar)
-        self.astar_button.pack(side=tk.TOP, padx=500)
+        self.astar_button = tk.Button(button_frame, text="A*", command=self.run_astar, width=15, height=2)
+        self.astar_button.grid(row=0, column=2, padx=5)
+
+        self.close_button = tk.Button(button_frame, text="Chiudi", command=self.close_app, width=15, height=2)
+        self.close_button.grid(row=0, column=3, padx=5)
+
+        self.root.grid_rowconfigure(1, weight=1)
+        self.root.grid_columnconfigure(0, weight=1)
+        self.root.grid_columnconfigure(1, weight=1)
+
+
+
+
+
 
 
     def redirect_output(self, text):
@@ -1005,6 +1017,8 @@ class ImageProcessingApp:
             # Process image
             self.image_matrix = self.process_image(image)
 
+    def update_output(self, message):
+        self.output_label.config(text=message)
 
 
     def process_image(self, image):
@@ -1017,15 +1031,22 @@ class ImageProcessingApp:
 
     def run_bfs(self):
         if not hasattr(self, 'image_matrix'):
+            self.update_output("Errore: Nessuna immagine caricata.")
             return
-        print("Running BFS on the image matrix...")
+        self.update_output("Esecuzione BFS sulla matrice dell'immagine...")
         run_program(self.image_path, 'DfsAlt')
+        
 
     def run_astar(self):
         if not hasattr(self, 'image_matrix'):
+            self.update_output("Errore: Nessuna immagine caricata.")
             return
-        run_program(matrix, 'GreedyAlt')
+        self.update_output("Esecuzione ASTAR sulla matrice dell'immagine...")
+        run_program(matrix, 'GreedyAlt', app)
 
+    def close_app(self):
+        self.root.destroy()
+    
 def main():
     root = tk.Tk()
     app = ImageProcessingApp(root)
