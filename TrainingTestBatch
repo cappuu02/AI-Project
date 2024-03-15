@@ -27,71 +27,65 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 
 
-# Load the dataset with letters
+# Carica il dataset delle lettere sia per training che per test, con le immagini e le label associate
 (train_images_letters, train_labels_letters) = extract_training_samples('letters')
 (test_images_letters, test_labels_letters) = extract_test_samples('letters')
 
-# Normalize the images
-train_images_letters, test_images_letters = train_images_letters / 255.0, test_images_letters / 255.0
 
-# Define the characters to train on
-characters_to_train = [19, 3, 24, 22, 4, 6]
+train_images_letters, test_images_letters = train_images_letters / 255.0, test_images_letters / 255.0 # Normalizza le immagini così che i pixel vengano standardizzati in 0,1 e possano essere utilizzati per il modello
 
-# Filter training data for the specified characters
+
+characters_to_train = [19, 3, 24, 22, 4, 6] # Definisce i caratteri su cui effettuare l'addestramento, sono le lettere S, C, X, V, D, F
+
+# Filtra i dati di addestramento per i caratteri specificati
 filtered_indices_train = np.isin(train_labels_letters, characters_to_train)
 train_images_filtered = train_images_letters[filtered_indices_train]
 train_labels_filtered = train_labels_letters[filtered_indices_train]
 
-# Filter test data for the specified characters
+# Filtra i dati di test per i caratteri specificati
 filtered_indices_test = np.isin(test_labels_letters, characters_to_train)
 test_images_filtered = test_images_letters[filtered_indices_test]
 test_labels_filtered = test_labels_letters[filtered_indices_test]
 
-# Reshape data to match the input shape of the model
+# Ridimensiona i dati per corrispondere alla forma di input del modello (non necessario perchè utilizzo EMNIST, ma con dataset diverso poteva servire)
 train_images_filtered = train_images_filtered.reshape((-1, 28, 28, 1))
 test_images_filtered = test_images_filtered.reshape((-1, 28, 28, 1))
 
-# Shuffle the training data
-train_images_filtered, train_labels_filtered = shuffle(train_images_filtered, train_labels_filtered)
-
-# Construct the CNN model with increased complexity
-model = models.Sequential([
-    layers.Conv2D(64, (3, 3), activation='relu', input_shape=(28, 28, 1)),
-    layers.MaxPooling2D((2, 2)),
-    layers.Conv2D(128, (3, 3), activation='relu'),
-    layers.MaxPooling2D((2, 2)),
-    layers.Conv2D(256, (3, 3), activation='relu'),  # Increase the number of filters
-    layers.MaxPooling2D((2, 2)),
-    layers.Flatten(),
-    layers.Dense(512, activation='relu'),  # Increase the number of neurons
-    layers.Dropout(0.5),
-    layers.Dense(25, activation='softmax')
+# Costruisce il modello CNN 
+model = models.Sequential([ # Funzione che crea un modello sequenziale, che è una pila di strati neurali dove i dati passano attraverso ciascuno strato nell'ordine specificato
+    layers.Conv2D(64, (3, 3), activation='relu', input_shape=(28, 28, 1)), # Primo strato convoluzionale, ha 64 filtri, ognuno con una dimensione di 3x3, la funzione di attivazione ReLU , la forma dell'input è un'immagine in scala di grigi di dimensione 28x28 pixel
+    layers.MaxPooling2D((2, 2)), # Strato di max pooling riduce la dimensione spaziale dell'output dalla convoluzione precedente, riduce l'overfitting e migliora la generalizzazione salvando solo le informazioni più rilevanti
+    layers.Conv2D(128, (3, 3), activation='relu'), # Secondo strato convoluzionale, aumenta il numero di filtri a 128, aumentare il numero di filtri consente al modello di catturare una maggiore varietà di caratteristiche e pattern nei dati.
+    layers.MaxPooling2D((2, 2)), # Strato di max pooling riduce la dimensione spaziale dell'output dalla convoluzione precedente
+    layers.Conv2D(256, (3, 3), activation='relu'), # Terzo strato convoluzionale, aumenta il numero di filtri a 256
+    layers.MaxPooling2D((2, 2)), # Strato di max pooling riduce la dimensione spaziale dell'output dalla convoluzione precedente
+    layers.Flatten(), #Strato che serve ad "appiattire" l'output dai livelli convoluzionali precedenti in un vettore unidimensionale, in modo che possa essere passato a strati densamente connessi
+    layers.Dense(512, activation='relu'),  # Strato denso con 512 neuroni e funzione di attivazione ReLU
+    layers.Dropout(0.5), # Uno strato di dropout con un tasso di dropout del 50%, è una tecnica di regolarizzazione che aiuta a prevenire l'overfitting eliminando casualmente alcuni neuroni durante l'addestramento
+    layers.Dense(25, activation='softmax') # Strato di output con 25 neuroni, uno per ciascuna delle classi di output possibili. La funzione di attivazione softmax viene utilizzata per ottenere una distribuzione di probabilità su tutte le classi
 ])
 
-# Compile the model with a different optimizer and a lower learning rate
+# Compila il modello con ottimizzatore Adam e un tasso di apprendimento specifico (adam regola il tasso di apprendimento automaticamente)
 optimizer = Adam(learning_rate=0.0001)
 model.compile(optimizer=optimizer,
-              loss='sparse_categorical_crossentropy',
-              metrics=['accuracy'])
+              loss='sparse_categorical_crossentropy', # Funzione di perdita comunemente utilizzata per problemi di classificazione in cui le etichette di classe sono interi
+              metrics=['accuracy']) # Specifica la metrica da monitorare durante l'addestramento e la valutazione del modello
 
-# Introduce early stopping to prevent overfitting
-early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True) # Introduce early stopping per prevenire l'overfitting, interrompe l'addestramento se la perdita non migliora per un numero specificato di epoche consecutive, il modello viene quindi ripristinato all'epoca migliore
 
-# Data Augmentation
-datagen = ImageDataGenerator(rotation_range=10, width_shift_range=0.1, height_shift_range=0.1, zoom_range=0.1)
-datagen.fit(train_images_filtered)
+# Data Augmentation (tecnica utilizzata durante l'addestramento delle reti neurali per aumentare la varietà dei dati di addestramento introducendo modifiche casuali e realistiche alle immagini esistenti)
+datagen = ImageDataGenerator(rotation_range=10, width_shift_range=0.1, height_shift_range=0.1, zoom_range=0.1) # Classe fornita da Keras che permette di generare automaticamente nuove immagini con modifiche casuali a partire da un set di immagini esistente
+datagen.fit(train_images_filtered) # Utilizzato per adattare l'ImageDataGenerator ai dati di addestramento forniti
 
-# Train the model with increased epochs
-history = model.fit(datagen.flow(train_images_filtered, train_labels_filtered, batch_size=32),
-                    steps_per_epoch=len(train_images_filtered) / 32, epochs=20,
-                    validation_data=(test_images_filtered, test_labels_filtered),
-                    callbacks=[early_stopping])
+# Addestra il modello
+history = model.fit(datagen.flow(train_images_filtered, train_labels_filtered, batch_size=32), # Applica le trasformazioni di aumento dei dati in tempo reale, 32 specifica la dimensione del batch per l'addestramento del modello
+                    steps_per_epoch=len(train_images_filtered) / 32, epochs=20, # Steps è il rapporto tra la dimensione dell'insieme di addestramento e la dimensione del batch, le epoche sono 20
+                    validation_data=(test_images_filtered, test_labels_filtered), # Il modello viene anche valutato sull'insieme di dati di test per ogni epoca per monitorare le prestazioni del modello sulla validazione e per evitare l'overfitting
+                    callbacks=[early_stopping]) #Fa uso della funzione early stopping
 
-# Salva il modello
-model.save('/content/drive/MyDrive/ProgettoAI/Modello/MioModello')
+model.save('/content/drive/MyDrive/ProgettoAI/Modello/MioModello') # Salva il modello
 
-# Evaluate the model on the test set
-test_loss, test_accuracy = model.evaluate(test_images_filtered, test_labels_filtered)
+test_loss, test_accuracy = model.evaluate(test_images_filtered, test_labels_filtered) # Valuta il modello sul set di test
 
 print(f'Test Accuracy: {test_accuracy * 100:.2f}%')
 print(f'Test Loss: {test_loss:.4f}')
