@@ -140,52 +140,65 @@ def run_program(image_name, search_algorithm):
     print("")
     SF = check_SF(rooms) # Chiama la funzione per controllare la validità della matrice per la risoluzione del problema
 
-    class SmartVacuum(Problem):
-        def __init__(self, initial):
-            self.initial = "S"
-            self.goal = "F"
-            self.deny = "X"
-            self.clean = "C"
-            self.dirty = "D"
-            self.Vdirty = "V"
-            self.graph = None
-            self.h = None
+    # Classe SmartVacuum che estende la classe Problem
+class SmartVacuum(Problem):
 
-        def actions(self, state, room, node, deterministic, GreedyAlt):
+    # Costruttore iniziale del problema con le definizioni degli stati iniziali
+    def __init__(self, initial):
+        self.initial = "S"
+        self.goal = "F"
+        self.deny = "X"
+        self.clean = "C"
+        self.dirty = "D"
+        self.Vdirty = "V"
+        self.graph = None
+        self.h = None
 
-          if GreedyAlt == True:
+    # Metodo per generare le azioni possibili
+    def actions(self, state, room, node, deterministic, GreedyAlt):
+
+        # Se l'approccio GreedyAlternativo è attivo
+        if GreedyAlt == True:
+            # Lista delle azioni possibili
             possible_actions = []
+            # Lista delle azioni fisse (clean e Vclean)
             fixed_actions = []
+            # Coordinate della stanza
             robot_row, robot_col = room
+            # Inizializziamo le distanze per le direzioni possibili come infinito
             up = math.inf
             down = math.inf
             left = math.inf
             right = math.inf
 
+            # Se la stanza attuale è sporca, aggiungiamo "clean" alla lista delle azioni fisse
             if state in [self.dirty]:
-                    fixed_actions.append("clean")
+                fixed_actions.append("clean")
+            # Se la stanza attuale è molto sporca, aggiungiamo "Vclean" alla lista delle azioni fisse
             if state in [self.Vdirty]:
-                    fixed_actions.append("Vclean")
-        
+                fixed_actions.append("Vclean")
+
+            # Calcoliamo le distanze per ogni direzione possibile
             if(robot_row > 0):
                 up = self.h_extract((room[0] - 1, room[1]), node.g) + node.path_cost
-                up_deadend  = next_room_deadend(node,(room[0] - 1, room[1]) )
+                up_deadend = next_room_deadend(node,(room[0] - 1, room[1]))
 
             if(robot_row < len(rooms) - 1):
                 down = self.h_extract((room[0] + 1, room[1]), node.g) + node.path_cost
-                down_deadend  = next_room_deadend(node,(room[0] + 1, room[1]) )
+                down_deadend = next_room_deadend(node,(room[0] + 1, room[1]))
 
             if(robot_col > 0):
                 left = self.h_extract((room[0], room[1] - 1), node.g) + node.path_cost
-                left_deadend  = next_room_deadend(node,(room[0], room[1] - 1) )
+                left_deadend = next_room_deadend(node,(room[0], room[1] - 1))
 
             if(robot_col < len(rooms) - 1):
                 right = self.h_extract((room[0], room[1] + 1), node.g) + node.path_cost
-                right_deadend  = next_room_deadend(node,(room[0], room[1] + 1) )
+                right_deadend = next_room_deadend(node,(room[0], room[1] + 1))
 
+            # Troviamo l'azione con la distanza minima
             do = min(up, down, left, right)
 
-            #Verifichiamo se l'azione UP è possibile
+            # Verifichiamo le azioni possibili in base alla distanza minima
             if do == up and robot_row > 0:
                 lettera = find_letter_position(node, room[0] - 1, room[1])
                 if lettera != self.deny:
@@ -218,32 +231,41 @@ def run_program(image_name, search_algorithm):
                     else:
                         possible_actions.append("move_right")
             
+            # Stampa le azioni possibili
             print("Azioni Possibili: ", fixed_actions + possible_actions )
+            # Restituisce le azioni possibili in modo tale che la pulizia sia fatta per prima
             return fixed_actions + possible_actions
 
-
-          if GreedyAlt == False:
+        # Se l'approccio GreedyAlternativo non è attivo
+        if GreedyAlt == False:
+            # Lista delle azioni possibili
             possible_actions = []
 
-
+            # Se il comportamento non è deterministico
             if(not deterministic):
+                # Lista delle azioni fisse
                 fixed_actions = []
                 static = ["clean", "Vclean"]
                 remaining_actions = []
-                deterministic_prob = 0.6  # Probabilità di scegliere un'azione deterministica invece di una randomica
+                # Probabilità di scegliere un'azione deterministica invece di una randomica
+                deterministic_prob = 0.6  
 
             robot_row, robot_col = room
 
+            # Se la stanza è sporca, aggiungiamo "clean" alla lista delle azioni possibili
             if state in [self.dirty]:
-                    possible_actions.append("clean")
-                    if(not deterministic):
-                        fixed_actions.append("clean")
+                possible_actions.append("clean")
+                # Se non è deterministico, aggiungiamo "clean" alla lista delle azioni fisse
+                if(not deterministic):
+                    fixed_actions.append("clean")
+            # Se la stanza è molto sporca, aggiungiamo "Vclean" alla lista delle azioni possibili
             if state in [self.Vdirty]:
-                    possible_actions.append("Vclean")
-                    if(not deterministic):
-                        fixed_actions.append("Vclean")
+                possible_actions.append("Vclean")
+                # Se non è deterministico, aggiungiamo "Vclean" alla lista delle azioni fisse
+                if(not deterministic):
+                    fixed_actions.append("Vclean")
 
-            #Verifichiamo se l'azione UP è possibile
+            # Verifichiamo se il movimento nelle 4 direzioni è possibile
             if robot_row > 0:
                 lettera = find_letter_position(node, room[0] - 1, room[1])
                 if lettera != self.deny:
@@ -264,25 +286,27 @@ def run_program(image_name, search_algorithm):
                 if lettera != self.deny:
                     possible_actions.append("move_right")
 
-
+            # Se non è deterministico
             if(not deterministic):
                 # Lista delle azioni rimanenti
                 print("Azioni possibiliR", possible_actions)
                 remaining_actions = [action for action in possible_actions if action not in static]
                 print("Azioni RimanentiR", remaining_actions)
 
-                # Mischiare le azioni rimanenti
+                
                 # Decide se utilizzare l'azione randomica o una deterministica
                 if remaining_actions and random.random() >= deterministic_prob:
+                    # Mischia le azioni rimanenti
                     random.shuffle(remaining_actions)
                     print("Azioni RimanentiR shuffle", remaining_actions)
 
-
+                # Concatena le azioni fisse con le azioni rimanenti mischiate
                 possible_actions_R = fixed_actions + remaining_actions
                 print("Azioni Possibili FinaliR", possible_actions_R)
+                # Restituisce le azioni possibili
                 return possible_actions_R
 
-
+            # Se è deterministico, restituisce le azioni possibili
             if(deterministic):
                  print("Azioni possibiliD", possible_actions)
                  return possible_actions
