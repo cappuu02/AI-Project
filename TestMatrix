@@ -15,68 +15,69 @@ import copy
 import queue
 
 
-def remove_grid(image):
-    edges = cv2.Canny(image, 50, 700, apertureSize=3)
-    kernel = np.ones((5, 5), np.uint8)
-    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
-    lines = cv2.HoughLinesP(edges, 0.1, np.pi / 180, threshold=100, minLineLength=150, maxLineGap=20)
+#Rimuove la griglia dalle immagini
+def remove_grid(image):                                                                                        
+    edges = cv2.Canny(image, 50, 700, apertureSize=3) #Funzione che implementa l'algoritmo rilevamento bordi di Canny, 50 valore minimo soglia bassa gradiente, 700 valore massimo soglia alta gradiente, 3 è la dimensione del kernel del filtro di Sobel utilizzato per il rilevamento dei gradienti
+    kernel = np.ones((5, 5), np.uint8) # Definisce un kernel per l'operazione di chiusura morfologica, un kernel è una matrice che definisce come i pixel dell'immagine di input sono combinati per ottenere output
+    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel) #Applica una chiusura morfologica all'immagine dei bordi, questo aiuta a collegare le linee interrotte e a eliminare i dettagli indesiderati
+    lines = cv2.HoughLinesP(edges, 0.1, np.pi / 180, threshold=100, minLineLength=150, maxLineGap=20) # Applica la trasformata di Hough per individuare le linee nell'immagine dei bordi, 0.1 è rho risoluzione in pixel dell'accumulatore della trasformata di Hough, np.pi/ 180 risoluzione angolare dell'accumulatore della trasformata di Hough in radianti, threshold: Soglia per la rilevazione delle linee. 100 threshold solo le linee con un numero di voti maggiori o uguali a questa soglia verranno considerate, 150 lunghezza minima della linea da considerare, 20 massima distanza tra i punti per considerarli appartenenti alla stessa linea.
 
     if lines is not None:
         for line in lines:
-            x1, y1, x2, y2 = line[0]
-            cv2.line(image, (x1, y1), (x2, y2), (255, 255, 255), 10)
+            x1, y1, x2, y2 = line[0] # Estrae i punti di inizio e fine della linea
+            cv2.line(image, (x1, y1), (x2, y2), (255, 255, 255), 10) # Disegna una linea bianca sopra la linea originale nell'immagine di spessore 10
 
     return image
 
 # Funzione per mostrare l'immagine
 def show_image(image):
-    plt.imshow(image, cmap='gray')
+    plt.imshow(image, cmap='gray') #Stampa l'immagine in scala di grigi
     plt.axis('off')
     plt.show()
 
-# Widget per caricare e visualizzare l'immagine
+# Funzione per caricare e visualizzare l'immagine
 def load_and_display_image(image_name):
-    image = cv2.imread(image_name)
-    image_without_grid = remove_grid(image)
-    show_image(image_without_grid)
+    image = cv2.imread(image_name) #Legge l'immagine
+    image_without_grid = remove_grid(image) 
+    show_image(image_without_grid) #Chiama la funzione per stampare l'immagine
     return image_without_grid
 
+# Funzione per stampare una matrice di stanze con coordinate (row,col)
 def stampa_matrice(rooms):
-    rows, cols = len(rooms), len(rooms[0])
-    # Calcola la lunghezza massima delle coordinate delle colonne
-    max_col_width = len(str(cols - 1))
+    rows, cols = len(rooms), len(rooms[0]) # Ottiene il numero di righe e colonne della matrice
+    max_col_width = len(str(cols - 1)) # Calcola la lunghezza massima delle coordinate delle colonne
 
     # Stampa le coordinate superiori della matrice
-    print(" " * (max_col_width + 2), end=" ")
-    for col in range(cols):
+    print(" " * (max_col_width + 2), end=" ") # Stampa le coordinate superiori della matrice
+    for col in range(cols): # Stampa le coordinate delle colonne allineate a destra
         print(str(col).rjust(max_col_width), end=" ")
     print()
-    print("-" * (max_col_width + 4 + cols * 2))
+    print("-" * (max_col_width + 4 + cols * 2)) # Stampa la riga di separazione
 
     # Stampa la matrice
     for row in range(rows):
-        print(str(row).rjust(max_col_width), "|", end=" ")
-        for col in range(cols):
-            print(rooms[row][col], end=" ")
+        print(str(row).rjust(max_col_width), "|", end=" ") # Stampa la coordinata della riga allineata a destra
+        for col in range(cols): 
+            print(rooms[row][col], end=" ") # Stampa il valore della cella della matrice
         print()
 
 
+# Funzione di Startup del programma
 def run_program(image_name, search_algorithm):
-    image_without_grid = load_and_display_image(image_name)
 
-
+    # Funzione che controlla se ci sono solo 1 stanza sorgente(S) ed una stanza finale(F), in caso contrario la matrice è invalida
     def check_SF(rooms):
         S_count = 0
         F_count = 0
 
-        for row in rooms:
+        for row in rooms: #Controlla tutta la matrice
             for cell in row:
                 if cell == "S":
                     S_count += 1
                 elif cell == "F":
                     F_count += 1
 
-        if S_count != 1 or F_count != 1:
+        if S_count != 1 or F_count != 1: # If di invalidità della matrice
             print("--")
             print("--")
             print("!!!!Matrice invalida, richiesta matrice con unica sorgente(S) e destinazione finale(F)...!!!!")
@@ -85,48 +86,49 @@ def run_program(image_name, search_algorithm):
 
 
     model_path = f'/home/cappu/Scrivania/AI/Modello/MioModello'
+    image_without_grid = load_and_display_image(image_name) # Chiama funzione per togliere griglia all'immagine
 
-    gray_image = cv2.cvtColor(image_without_grid, cv2.COLOR_BGR2GRAY)
+    gray_image = cv2.cvtColor(image_without_grid, cv2.COLOR_BGR2GRAY) # Converti l'immagine senza griglia in scala di grigi per semplificare l'elaborazione e per ragioni di compatibilità tra funzioni
 
-    resized_image = cv2.resize(gray_image, (0, 0), fx=0.5, fy=0.5)
-    blurred_image = cv2.GaussianBlur(resized_image, (5, 5), 0)
-    _, binary_image = cv2.threshold(blurred_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    binary_image = cv2.bitwise_not(binary_image)
+    resized_image = cv2.resize(gray_image, (0, 0), fx=0.5, fy=0.5) # Ridimensiona l'immagine in scala di grigi per ridurre il tempo di elaborazione
+    blurred_image = cv2.GaussianBlur(resized_image, (5, 5), 0) # Applica un filtro di sfocatura gaussiano all'immagine ridimensionata per ridurre il rumore nell'immagine
+    _, binary_image = cv2.threshold(blurred_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU) # Applica la sogliatura di Otsu all'immagine sfocata per ottenere un'immagine binaria che separa le ROI dallo sfondo
+    binary_image = cv2.bitwise_not(binary_image) # Inverte l'immagine binaria così che i pixel siano bianchi su sfondo nero
 
-    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) # Trova i contorni nell'immagine binaria
 
     model = load_model(model_path)
     predicted_letters = []
 
     for contour in contours:
-        contour_area = cv2.contourArea(contour)
+        contour_area = cv2.contourArea(contour) # Calcola l'area del contorno
 
-        x, y, w, h = cv2.boundingRect(contour)
+        x, y, w, h = cv2.boundingRect(contour) # Trova i rettangoli delimitanti per i contorni
 
-        roi = binary_image[y:y+h, x:x+w]
-        roi_resized = cv2.resize(roi, (28, 28))
-        image_normalized = roi_resized / 255.0
-        input_data = image_normalized.reshape(1, 28, 28, 1)
+        roi = binary_image[y:y+h, x:x+w] # Estrai la regione di interesse (ROI) dall'immagine binaria
+        roi_resized = cv2.resize(roi, (28, 28)) # Ridimensiona la ROI a 28x28 pixel (Il modello lavora su 28x28)
+        image_normalized = roi_resized / 255.0 # Normalizza l'immagine ridimensionata portando tutti i pixel a valori tra 0 ed 1 standardizzandoli per il modello
+        input_data = image_normalized.reshape(1, 28, 28, 1) #Converte l'immagine normalizzata in un formato che può essere utilizzato come input per il modello di riconoscimento delle lettere
 
         predictions = model.predict(input_data)
-        predicted_value = np.argmax(predictions)
+        predicted_value = np.argmax(predictions) # Trova il valore previsto come indice di massimo valore nelle previsioni
 
         letter_mapping = {'S': 19, 'C': 3, 'X': 24, 'V': 22, 'D': 4, 'F': 6}
-        predicted_letter = [letter for letter, value in letter_mapping.items() if value == predicted_value][0]
+        predicted_letter = [letter for letter, value in letter_mapping.items() if value == predicted_value][0] # Mappa il valore previsto alla lettera corrispondente
         predicted_letters.append((predicted_letter, x, y))
 
-    predicted_letters.sort(key=lambda x: x[2])
+    predicted_letters.sort(key=lambda x: x[2]) # Ordina le lettere previste in base alla coordinata y per organizzarle per riga
     row_letters = []
     current_row = []
     prev_y = None
 
     for letter_info in predicted_letters:
-        _, _, y = letter_info
-        if prev_y is None or abs(y - prev_y) < 30:
+        _, _, y = letter_info # Estrai la coordinata y della lettera corrente
+        if prev_y is None or abs(y - prev_y) < 30: # Verifica se è la prima lettera o se la differenza tra le coordinate y è inferiore a 30 pixel (indicativo dello stesso riga)
             current_row.append(letter_info)
-        else:
-            row_letters.append(sorted(current_row, key=lambda x: x[1]))
-            current_row = [letter_info]
+        else: # Se la differenza tra le coordinate y è maggiore di 30 pixel, significa che la lettera appartiene a una nuova riga
+            row_letters.append(sorted(current_row, key=lambda x: x[1])) # Aggiungi l'ultima riga alla lista delle righe
+            rooms = [[letter_info[0] for letter_info in row] for row in row_letters] # Costruisci la matrice delle lettere previste organizzate per riga
         prev_y = y
 
     row_letters.append(sorted(current_row, key=lambda x: x[1]))
@@ -136,7 +138,7 @@ def run_program(image_name, search_algorithm):
     stampa_matrice(rooms)
     print("")
     print("")
-    SF = check_SF(rooms)
+    SF = check_SF(rooms) # Chiama la funzione per controllare la validità della matrice per la risoluzione del problema
 
     class SmartVacuum(Problem):
         def __init__(self, initial):
