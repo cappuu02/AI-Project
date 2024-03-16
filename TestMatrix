@@ -311,12 +311,13 @@ class SmartVacuum(Problem):
                  print("Azioni possibiliD", possible_actions)
                  return possible_actions
 
-
+        # Funzione che si occupa di attuare le azioni che erano state salvate su actions
         def result(self, node, action, problem):
-            #salva la lettera
             room = node.room
 
+            # Se l'azione è di pulizia
             if action == "clean":
+                # Aggiorna la lettera nella stanza pulita e stampa
                 update_letter_position(node, room[0], room[1], "C")
                 print("")
                 print("Pulisco la stanza",room,"con costo 1 (D->C):")
@@ -325,6 +326,7 @@ class SmartVacuum(Problem):
 
                 return None  # Indica che l'azione di pulizia è stata eseguita e che non c'è un nodo successivo
 
+            # Stesso ragionamento di sopra ma con Vclean
             if action == "Vclean":
                 update_letter_position(node, room[0], room[1], "C")
                 print("")
@@ -334,6 +336,7 @@ class SmartVacuum(Problem):
 
                 return None  # Indica che l'azione di pulizia è stata eseguita e che non c'è un nodo successivoo
 
+            # Esegui le azioni di movimento che erano state precedentemente appese e salva la stanza in cui ci sposteremo
             if action == "move_up":
                 lettera = find_letter_position(node, room[0] - 1, room[1])
                 robot_node = (lettera, (room[0] - 1, room[1]))
@@ -350,24 +353,31 @@ class SmartVacuum(Problem):
                 lettera = find_letter_position(node, room[0], room[1] + 1)
                 robot_node = (lettera, (room[0], room[1] + 1))
 
+            # Se il robot è incastrato in tutte e 4 le direzioni questa funzione gli permetterà di muoversi
             robot_stuck(node, node.explored)
 
+            # Ritorna lo stato della stanza successiva
             return robot_node
 
 
+        # Funzione che controlla se ci troviamo nello stato finale, se è affermativo e sono pulite tutte le stanze sporche termina correttamente il programma
         def goal_test(self, state, node):
             robot_info, room = state
 
+            # Check se ci troviamo nella stanza finale
             if robot_info == self.goal:
+                # Variabile che ci dice se le stanze sono state pulite tutte oppure no
                 dirty_vacuumed = all(find_letter_position(node, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in range(len(rooms[row])))
+                # Se sono state pulite tutte ritorna True e termina
                 if dirty_vacuumed:
                     return True
+                # Altrimenti continua ad eseguire finchè non sono pulite tutte
                 else:
                     print("Per entrare nella destinazione finale(D) vanno pulite tutte le stanze(D,V).")
                     return False
             return False
 
-
+        # Estrae il valore dell'euristica dalla matrice da una determinata stanza data in input
         def h_extract(self, room, h_value):
             row, col = room
             return h_value[row][col]
