@@ -15,120 +15,119 @@ import copy
 import queue
 
 
-#Rimuove la griglia dalle immagini
-def remove_grid(image):                                                                                        
-    edges = cv2.Canny(image, 50, 700, apertureSize=3) #Funzione che implementa l'algoritmo rilevamento bordi di Canny, 50 valore minimo soglia bassa gradiente, 700 valore massimo soglia alta gradiente, 3 è la dimensione del kernel del filtro di Sobel utilizzato per il rilevamento dei gradienti
-    kernel = np.ones((5, 5), np.uint8) # Definisce un kernel per l'operazione di chiusura morfologica, un kernel è una matrice che definisce come i pixel dell'immagine di input sono combinati per ottenere output
-    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel) #Applica una chiusura morfologica all'immagine dei bordi, questo aiuta a collegare le linee interrotte e a eliminare i dettagli indesiderati
-    lines = cv2.HoughLinesP(edges, 0.1, np.pi / 180, threshold=100, minLineLength=150, maxLineGap=20) # Applica la trasformata di Hough per individuare le linee nell'immagine dei bordi, 0.1 è rho risoluzione in pixel dell'accumulatore della trasformata di Hough, np.pi/ 180 risoluzione angolare dell'accumulatore della trasformata di Hough in radianti, threshold: Soglia per la rilevazione delle linee. 100 threshold solo le linee con un numero di voti maggiori o uguali a questa soglia verranno considerate, 150 lunghezza minima della linea da considerare, 20 massima distanza tra i punti per considerarli appartenenti alla stessa linea.
+def remove_grid(image):
+    edges = cv2.Canny(image, 50, 700, apertureSize=3)
+    kernel = np.ones((5, 5), np.uint8)
+    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+    lines = cv2.HoughLinesP(edges, 0.1, np.pi / 180, threshold=100, minLineLength=150, maxLineGap=20)
 
     if lines is not None:
         for line in lines:
-            x1, y1, x2, y2 = line[0] # Estrae i punti di inizio e fine della linea
-            cv2.line(image, (x1, y1), (x2, y2), (255, 255, 255), 10) # Disegna una linea bianca sopra la linea originale nell'immagine di spessore 10
+            x1, y1, x2, y2 = line[0]
+            cv2.line(image, (x1, y1), (x2, y2), (255, 255, 255), 10)
 
     return image
 
+
 # Funzione per mostrare l'immagine
 def show_image(image):
-    plt.imshow(image, cmap='gray') #Stampa l'immagine in scala di grigi
+    plt.imshow(image, cmap='gray')
     plt.axis('off')
     plt.show()
 
-# Funzione per caricare e visualizzare l'immagine
+
+# Widget per caricare e visualizzare l'immagine
 def load_and_display_image(image_name):
-    image = cv2.imread(image_name) #Legge l'immagine
-    image_without_grid = remove_grid(image) 
-    show_image(image_without_grid) #Chiama la funzione per stampare l'immagine
+    image = cv2.imread(image_name)
+    image_without_grid = remove_grid(image)
+    show_image(image_without_grid)
     return image_without_grid
 
-# Funzione per stampare una matrice di stanze con coordinate (row,col)
+
 def stampa_matrice(rooms):
-    rows, cols = len(rooms), len(rooms[0]) # Ottiene il numero di righe e colonne della matrice
-    max_col_width = len(str(cols - 1)) # Calcola la lunghezza massima delle coordinate delle colonne
+    rows, cols = len(rooms), len(rooms[0])
+    # Calcola la lunghezza massima delle coordinate delle colonne
+    max_col_width = len(str(cols - 1))
 
     # Stampa le coordinate superiori della matrice
-    print(" " * (max_col_width + 2), end=" ") # Stampa le coordinate superiori della matrice
-    for col in range(cols): # Stampa le coordinate delle colonne allineate a destra
+    print(" " * (max_col_width + 2), end=" ")
+    for col in range(cols):
         print(str(col).rjust(max_col_width), end=" ")
     print()
-    print("-" * (max_col_width + 4 + cols * 2)) # Stampa la riga di separazione
+    print("-" * (max_col_width + 4 + cols * 2))
 
     # Stampa la matrice
     for row in range(rows):
-        print(str(row).rjust(max_col_width), "|", end=" ") # Stampa la coordinata della riga allineata a destra
-        for col in range(cols): 
-            print(rooms[row][col], end=" ") # Stampa il valore della cella della matrice
+        print(str(row).rjust(max_col_width), "|", end=" ")
+        for col in range(cols):
+            print(rooms[row][col], end=" ")
         print()
 
 
-# Funzione di Startup del programma
 def run_program(image_name, search_algorithm):
+    image_without_grid = load_and_display_image(image_name)
 
-    # Funzione che controlla se ci sono solo 1 stanza sorgente(S) ed una stanza finale(F), in caso contrario la matrice è invalida
     def check_SF(rooms):
         S_count = 0
         F_count = 0
 
-        for row in rooms: #Controlla tutta la matrice
+        for row in rooms:
             for cell in row:
                 if cell == "S":
                     S_count += 1
                 elif cell == "F":
                     F_count += 1
 
-        if S_count != 1 or F_count != 1: # If di invalidità della matrice
+        if S_count != 1 or F_count != 1:
             print("--")
             print("--")
             print("!!!!Matrice invalida, richiesta matrice con unica sorgente(S) e destinazione finale(F)...!!!!")
             return False
         return True
 
+    model_path = f'MioModello.h5'
 
-    model_path = f'/home/cappu/Scrivania/AI/Modello/MioModello'
-    image_without_grid = load_and_display_image(image_name) # Chiama funzione per togliere griglia all'immagine
+    gray_image = cv2.cvtColor(image_without_grid, cv2.COLOR_BGR2GRAY)
 
-    gray_image = cv2.cvtColor(image_without_grid, cv2.COLOR_BGR2GRAY) # Converti l'immagine senza griglia in scala di grigi per semplificare l'elaborazione e per ragioni di compatibilità tra funzioni
+    resized_image = cv2.resize(gray_image, (0, 0), fx=0.5, fy=0.5)
+    blurred_image = cv2.GaussianBlur(resized_image, (5, 5), 0)
+    _, binary_image = cv2.threshold(blurred_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    binary_image = cv2.bitwise_not(binary_image)
 
-    resized_image = cv2.resize(gray_image, (0, 0), fx=0.5, fy=0.5) # Ridimensiona l'immagine in scala di grigi per ridurre il tempo di elaborazione
-    blurred_image = cv2.GaussianBlur(resized_image, (5, 5), 0) # Applica un filtro di sfocatura gaussiano all'immagine ridimensionata per ridurre il rumore nell'immagine
-    _, binary_image = cv2.threshold(blurred_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU) # Applica la sogliatura di Otsu all'immagine sfocata per ottenere un'immagine binaria che separa le ROI dallo sfondo
-    binary_image = cv2.bitwise_not(binary_image) # Inverte l'immagine binaria così che i pixel siano bianchi su sfondo nero
-
-    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) # Trova i contorni nell'immagine binaria
+    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     model = load_model(model_path)
     predicted_letters = []
 
     for contour in contours:
-        contour_area = cv2.contourArea(contour) # Calcola l'area del contorno
+        contour_area = cv2.contourArea(contour)
 
-        x, y, w, h = cv2.boundingRect(contour) # Trova i rettangoli delimitanti per i contorni
+        x, y, w, h = cv2.boundingRect(contour)
 
-        roi = binary_image[y:y+h, x:x+w] # Estrai la regione di interesse (ROI) dall'immagine binaria
-        roi_resized = cv2.resize(roi, (28, 28)) # Ridimensiona la ROI a 28x28 pixel (Il modello lavora su 28x28)
-        image_normalized = roi_resized / 255.0 # Normalizza l'immagine ridimensionata portando tutti i pixel a valori tra 0 ed 1 standardizzandoli per il modello
-        input_data = image_normalized.reshape(1, 28, 28, 1) #Converte l'immagine normalizzata in un formato che può essere utilizzato come input per il modello di riconoscimento delle lettere
+        roi = binary_image[y:y + h, x:x + w]
+        roi_resized = cv2.resize(roi, (28, 28))
+        image_normalized = roi_resized / 255.0
+        input_data = image_normalized.reshape(1, 28, 28, 1)
 
         predictions = model.predict(input_data)
-        predicted_value = np.argmax(predictions) # Trova il valore previsto come indice di massimo valore nelle previsioni
+        predicted_value = np.argmax(predictions)
 
         letter_mapping = {'S': 19, 'C': 3, 'X': 24, 'V': 22, 'D': 4, 'F': 6}
-        predicted_letter = [letter for letter, value in letter_mapping.items() if value == predicted_value][0] # Mappa il valore previsto alla lettera corrispondente
+        predicted_letter = [letter for letter, value in letter_mapping.items() if value == predicted_value][0]
         predicted_letters.append((predicted_letter, x, y))
 
-    predicted_letters.sort(key=lambda x: x[2]) # Ordina le lettere previste in base alla coordinata y per organizzarle per riga
+    predicted_letters.sort(key=lambda x: x[2])
     row_letters = []
     current_row = []
     prev_y = None
 
     for letter_info in predicted_letters:
-        _, _, y = letter_info # Estrai la coordinata y della lettera corrente
-        if prev_y is None or abs(y - prev_y) < 30: # Verifica se è la prima lettera o se la differenza tra le coordinate y è inferiore a 30 pixel (indicativo dello stesso riga)
+        _, _, y = letter_info
+        if prev_y is None or abs(y - prev_y) < 30:
             current_row.append(letter_info)
-        else: # Se la differenza tra le coordinate y è maggiore di 30 pixel, significa che la lettera appartiene a una nuova riga
-            row_letters.append(sorted(current_row, key=lambda x: x[1])) # Aggiungi l'ultima riga alla lista delle righe
-            rooms = [[letter_info[0] for letter_info in row] for row in row_letters] # Costruisci la matrice delle lettere previste organizzate per riga
+        else:
+            row_letters.append(sorted(current_row, key=lambda x: x[1]))
+            current_row = [letter_info]
         prev_y = y
 
     row_letters.append(sorted(current_row, key=lambda x: x[1]))
@@ -138,205 +137,172 @@ def run_program(image_name, search_algorithm):
     stampa_matrice(rooms)
     print("")
     print("")
-    SF = check_SF(rooms) # Chiama la funzione per controllare la validità della matrice per la risoluzione del problema
+    SF = check_SF(rooms)
 
-    # Classe SmartVacuum che estende la classe Problem
-class SmartVacuum(Problem):
+    class SmartVacuum(Problem):
+        def __init__(self, initial):
+            self.initial = "S"
+            self.goal = "F"
+            self.deny = "X"
+            self.clean = "C"
+            self.dirty = "D"
+            self.Vdirty = "V"
+            self.graph = None
+            self.h = None
 
-    # Costruttore iniziale del problema con le definizioni degli stati iniziali
-    def __init__(self, initial):
-        self.initial = "S"
-        self.goal = "F"
-        self.deny = "X"
-        self.clean = "C"
-        self.dirty = "D"
-        self.Vdirty = "V"
-        self.graph = None
-        self.h = None
+        def actions(self, state, room, node, deterministic, GreedyAlt):
 
-    # Metodo per generare le azioni possibili
-    def actions(self, state, room, node, deterministic, GreedyAlt):
-
-        # Se l'approccio GreedyAlternativo è attivo
-        if GreedyAlt == True:
-            # Lista delle azioni possibili
-            possible_actions = []
-            # Lista delle azioni fisse (clean e Vclean)
-            fixed_actions = []
-            # Coordinate della stanza
-            robot_row, robot_col = room
-            # Inizializziamo le distanze per le direzioni possibili come infinito
-            up = math.inf
-            down = math.inf
-            left = math.inf
-            right = math.inf
-
-            # Se la stanza attuale è sporca, aggiungiamo "clean" alla lista delle azioni fisse
-            if state in [self.dirty]:
-                fixed_actions.append("clean")
-            # Se la stanza attuale è molto sporca, aggiungiamo "Vclean" alla lista delle azioni fisse
-            if state in [self.Vdirty]:
-                fixed_actions.append("Vclean")
-
-            # Calcoliamo le distanze per ogni direzione possibile
-            if(robot_row > 0):
-                up = self.h_extract((room[0] - 1, room[1]), node.g) + node.path_cost
-                up_deadend = next_room_deadend(node,(room[0] - 1, room[1]))
-
-            if(robot_row < len(rooms) - 1):
-                down = self.h_extract((room[0] + 1, room[1]), node.g) + node.path_cost
-                down_deadend = next_room_deadend(node,(room[0] + 1, room[1]))
-
-            if(robot_col > 0):
-                left = self.h_extract((room[0], room[1] - 1), node.g) + node.path_cost
-                left_deadend = next_room_deadend(node,(room[0], room[1] - 1))
-
-            if(robot_col < len(rooms) - 1):
-                right = self.h_extract((room[0], room[1] + 1), node.g) + node.path_cost
-                right_deadend = next_room_deadend(node,(room[0], room[1] + 1))
-
-            # Troviamo l'azione con la distanza minima
-            do = min(up, down, left, right)
-
-            # Verifichiamo le azioni possibili in base alla distanza minima
-            if do == up and robot_row > 0:
-                lettera = find_letter_position(node, room[0] - 1, room[1])
-                if lettera != self.deny:
-                    if next_room_deadend(node, (room[0] - 1, room[1])):
-                        possible_actions.insert(0, "move_up")  # Priorità alle stanze deadend
-                    else:
-                        possible_actions.append("move_up")
-
-            if do == down and robot_row < len(rooms) - 1:
-                lettera = find_letter_position(node, room[0] + 1, room[1])
-                if(lettera) != self.deny:
-                    if next_room_deadend(node, (room[0] + 1, room[1])):
-                        possible_actions.insert(0, "move_down")  # Priorità alle stanze deadend
-                    else:
-                        possible_actions.append("move_down")
-
-            if do == left and robot_col > 0:
-                lettera = find_letter_position(node, room[0], room[1] - 1)
-                if lettera != self.deny:
-                    if next_room_deadend(node, (room[0], room[1] - 1)):
-                        possible_actions.insert(0, "move_left")  # Priorità alle stanze deadend
-                    else:
-                        possible_actions.append("move_left")
-
-            if do == right and robot_col < len(rooms) - 1:
-                lettera = find_letter_position(node, room[0], room[1] + 1)
-                if lettera != self.deny:
-                    if next_room_deadend(node, (room[0], room[1] + 1)):
-                        possible_actions.insert(0, "move_right")  # Priorità alle stanze deadend
-                    else:
-                        possible_actions.append("move_right")
-            
-            # Stampa le azioni possibili
-            print("Azioni Possibili: ", fixed_actions + possible_actions )
-            # Restituisce le azioni possibili in modo tale che la pulizia sia fatta per prima
-            return fixed_actions + possible_actions
-
-        # Se l'approccio GreedyAlternativo non è attivo
-        if GreedyAlt == False:
-            # Lista delle azioni possibili
-            possible_actions = []
-
-            # Se il comportamento non è deterministico
-            if(not deterministic):
-                # Lista delle azioni fisse
+            if GreedyAlt == True:
+                possible_actions = []
                 fixed_actions = []
-                static = ["clean", "Vclean"]
-                remaining_actions = []
-                # Probabilità di scegliere un'azione deterministica invece di una randomica
-                deterministic_prob = 0.6  
+                robot_row, robot_col = room
+                up = math.inf
+                down = math.inf
+                left = math.inf
+                right = math.inf
 
-            robot_row, robot_col = room
-
-            # Se la stanza è sporca, aggiungiamo "clean" alla lista delle azioni possibili
-            if state in [self.dirty]:
-                possible_actions.append("clean")
-                # Se non è deterministico, aggiungiamo "clean" alla lista delle azioni fisse
-                if(not deterministic):
+                if state in [self.dirty]:
                     fixed_actions.append("clean")
-            # Se la stanza è molto sporca, aggiungiamo "Vclean" alla lista delle azioni possibili
-            if state in [self.Vdirty]:
-                possible_actions.append("Vclean")
-                # Se non è deterministico, aggiungiamo "Vclean" alla lista delle azioni fisse
-                if(not deterministic):
+                if state in [self.Vdirty]:
                     fixed_actions.append("Vclean")
 
-            # Verifichiamo se il movimento nelle 4 direzioni è possibile
-            if robot_row > 0:
-                lettera = find_letter_position(node, room[0] - 1, room[1])
-                if lettera != self.deny:
-                    possible_actions.append("move_up")
+                if (robot_row > 0):
+                    up = self.h_extract((room[0] - 1, room[1]), node.g) + node.path_cost
+                    up_deadend = next_room_deadend(node, (room[0] - 1, room[1]))
 
-            if robot_row < len(rooms) - 1:
-                lettera = find_letter_position(node, room[0] + 1, room[1])
-                if(lettera) != self.deny:
-                    possible_actions.append("move_down")
+                if (robot_row < len(rooms) - 1):
+                    down = self.h_extract((room[0] + 1, room[1]), node.g) + node.path_cost
+                    down_deadend = next_room_deadend(node, (room[0] + 1, room[1]))
 
-            if robot_col > 0:
-                lettera = find_letter_position(node, room[0], room[1] - 1)
-                if lettera != self.deny:
-                    possible_actions.append("move_left")
+                if (robot_col > 0):
+                    left = self.h_extract((room[0], room[1] - 1), node.g) + node.path_cost
+                    left_deadend = next_room_deadend(node, (room[0], room[1] - 1))
 
-            if robot_col < len(rooms) - 1:
-                lettera = find_letter_position(node, room[0], room[1] + 1)
-                if lettera != self.deny:
-                    possible_actions.append("move_right")
+                if (robot_col < len(rooms) - 1):
+                    right = self.h_extract((room[0], room[1] + 1), node.g) + node.path_cost
+                    right_deadend = next_room_deadend(node, (room[0], room[1] + 1))
 
-            # Se non è deterministico
-            if(not deterministic):
-                # Lista delle azioni rimanenti
-                print("Azioni possibiliR", possible_actions)
-                remaining_actions = [action for action in possible_actions if action not in static]
-                print("Azioni RimanentiR", remaining_actions)
+                do = min(up, down, left, right)
 
-                
-                # Decide se utilizzare l'azione randomica o una deterministica
-                if remaining_actions and random.random() >= deterministic_prob:
-                    # Mischia le azioni rimanenti
-                    random.shuffle(remaining_actions)
-                    print("Azioni RimanentiR shuffle", remaining_actions)
+                # Verifichiamo se l'azione UP è possibile
+                if do == up and robot_row > 0:
+                    lettera = find_letter_position(node, room[0] - 1, room[1])
+                    if lettera != self.deny:
+                        if next_room_deadend(node, (room[0] - 1, room[1])):
+                            possible_actions.insert(0, "move_up")  # Priorità alle stanze deadend
+                        else:
+                            possible_actions.append("move_up")
 
-                # Concatena le azioni fisse con le azioni rimanenti mischiate
-                possible_actions_R = fixed_actions + remaining_actions
-                print("Azioni Possibili FinaliR", possible_actions_R)
-                # Restituisce le azioni possibili
-                return possible_actions_R
+                if do == down and robot_row < len(rooms) - 1:
+                    lettera = find_letter_position(node, room[0] + 1, room[1])
+                    if (lettera) != self.deny:
+                        if next_room_deadend(node, (room[0] + 1, room[1])):
+                            possible_actions.insert(0, "move_down")  # Priorità alle stanze deadend
+                        else:
+                            possible_actions.append("move_down")
 
-            # Se è deterministico, restituisce le azioni possibili
-            if(deterministic):
-                 print("Azioni possibiliD", possible_actions)
-                 return possible_actions
+                if do == left and robot_col > 0:
+                    lettera = find_letter_position(node, room[0], room[1] - 1)
+                    if lettera != self.deny:
+                        if next_room_deadend(node, (room[0], room[1] - 1)):
+                            possible_actions.insert(0, "move_left")  # Priorità alle stanze deadend
+                        else:
+                            possible_actions.append("move_left")
 
-        # Funzione che si occupa di attuare le azioni che erano state salvate su actions
+                if do == right and robot_col < len(rooms) - 1:
+                    lettera = find_letter_position(node, room[0], room[1] + 1)
+                    if lettera != self.deny:
+                        if next_room_deadend(node, (room[0], room[1] + 1)):
+                            possible_actions.insert(0, "move_right")  # Priorità alle stanze deadend
+                        else:
+                            possible_actions.append("move_right")
+
+                print("Azioni Possibili: ", fixed_actions + possible_actions)
+                return fixed_actions + possible_actions
+
+            if GreedyAlt == False:
+                possible_actions = []
+
+                if (not deterministic):
+                    fixed_actions = []
+                    static = ["clean", "Vclean"]
+                    remaining_actions = []
+                    deterministic_prob = 0.6  # Probabilità di scegliere un'azione deterministica invece di una randomica
+
+                robot_row, robot_col = room
+
+                if state in [self.dirty]:
+                    possible_actions.append("clean")
+                    if (not deterministic):
+                        fixed_actions.append("clean")
+                if state in [self.Vdirty]:
+                    possible_actions.append("Vclean")
+                    if (not deterministic):
+                        fixed_actions.append("Vclean")
+
+                # Verifichiamo se l'azione UP è possibile
+                if robot_row > 0:
+                    lettera = find_letter_position(node, room[0] - 1, room[1])
+                    if lettera != self.deny:
+                        possible_actions.append("move_up")
+
+                if robot_row < len(rooms) - 1:
+                    lettera = find_letter_position(node, room[0] + 1, room[1])
+                    if (lettera) != self.deny:
+                        possible_actions.append("move_down")
+
+                if robot_col > 0:
+                    lettera = find_letter_position(node, room[0], room[1] - 1)
+                    if lettera != self.deny:
+                        possible_actions.append("move_left")
+
+                if robot_col < len(rooms) - 1:
+                    lettera = find_letter_position(node, room[0], room[1] + 1)
+                    if lettera != self.deny:
+                        possible_actions.append("move_right")
+
+                if (not deterministic):
+                    # Lista delle azioni rimanenti
+                    print("Azioni possibiliR", possible_actions)
+                    remaining_actions = [action for action in possible_actions if action not in static]
+                    print("Azioni RimanentiR", remaining_actions)
+
+                    # Mischiare le azioni rimanenti
+                    # Decide se utilizzare l'azione randomica o una deterministica
+                    if remaining_actions and random.random() >= deterministic_prob:
+                        random.shuffle(remaining_actions)
+                        print("Azioni RimanentiR shuffle", remaining_actions)
+
+                    possible_actions_R = fixed_actions + remaining_actions
+                    print("Azioni Possibili FinaliR", possible_actions_R)
+                    return possible_actions_R
+
+                if (deterministic):
+                    print("Azioni possibiliD", possible_actions)
+                    return possible_actions
+
         def result(self, node, action, problem):
+            # salva la lettera
             room = node.room
 
-            # Se l'azione è di pulizia
             if action == "clean":
-                # Aggiorna la lettera nella stanza pulita e stampa
                 update_letter_position(node, room[0], room[1], "C")
                 print("")
-                print("Pulisco la stanza",room,"con costo 1 (D->C):")
+                print("Pulisco la stanza", room, "con costo 1 (D->C):")
                 stampa_matrice(node.rooms)
                 print("")
 
                 return None  # Indica che l'azione di pulizia è stata eseguita e che non c'è un nodo successivo
 
-            # Stesso ragionamento di sopra ma con Vclean
             if action == "Vclean":
                 update_letter_position(node, room[0], room[1], "C")
                 print("")
-                print("Pulisco la stanza",room,"con costo 3 (V->C):")
+                print("Pulisco la stanza", room, "con costo 3 (V->C):")
                 stampa_matrice(node.rooms)
                 print("")
 
                 return None  # Indica che l'azione di pulizia è stata eseguita e che non c'è un nodo successivoo
 
-            # Esegui le azioni di movimento che erano state precedentemente appese e salva la stanza in cui ci sposteremo
             if action == "move_up":
                 lettera = find_letter_position(node, room[0] - 1, room[1])
                 robot_node = (lettera, (room[0] - 1, room[1]))
@@ -353,109 +319,99 @@ class SmartVacuum(Problem):
                 lettera = find_letter_position(node, room[0], room[1] + 1)
                 robot_node = (lettera, (room[0], room[1] + 1))
 
-            # Se il robot è incastrato in tutte e 4 le direzioni questa funzione gli permetterà di muoversi
             robot_stuck(node, node.explored)
 
-            # Ritorna lo stato della stanza successiva
             return robot_node
 
-
-        # Funzione che controlla se ci troviamo nello stato finale, se è affermativo e sono pulite tutte le stanze sporche termina correttamente il programma
         def goal_test(self, state, node):
             robot_info, room = state
 
-            # Check se ci troviamo nella stanza finale
             if robot_info == self.goal:
-                # Variabile che ci dice se le stanze sono state pulite tutte oppure no
-                dirty_vacuumed = all(find_letter_position(node, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in range(len(rooms[row])))
-                # Se sono state pulite tutte ritorna True e termina
+                dirty_vacuumed = all(
+                    find_letter_position(node, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in
+                    range(len(rooms[row])))
                 if dirty_vacuumed:
                     return True
-                # Altrimenti continua ad eseguire finchè non sono pulite tutte
                 else:
                     print("Per entrare nella destinazione finale(D) vanno pulite tutte le stanze(D,V).")
                     return False
             return False
 
-        # Estrae il valore dell'euristica dalla matrice da una determinata stanza data in input
         def h_extract(self, room, h_value):
             row, col = room
             return h_value[row][col]
 
-        # Aggiorna la matrice dell'euristica in base al nodo corrente e alla stanza sporca più vicina, se non ci sono stanze sporche lo fa rispetto alla stanza finale
         def h_update(self, next_room, node):
-            # Inizializza i valori dell'euristica delle stanze a 0
             h_values = [[None for _ in range(len(rooms[0]))] for _ in range(len(rooms))]
-            
+
             dirty_rooms = []
             final_position = None
             nearest_distance = math.inf
             deadend_rooms = []
 
-            # Trova una stanza sporca il più vicino possibile alla stanza attuale 
+            # Trova una stanza sporca adiacente al nodo attuale
             for row_idx, row in enumerate(node.rooms):
                 for col_idx, cell in enumerate(row):
                     if cell == "D" or cell == "V":  # Verifica se la stanza è sporca
                         room = (row_idx, col_idx)
-                        distance = calculate_distance(next_room, room) # Trova la distanza tra la stanza attuale e la stanza sporca della cella
+                        distance = calculate_distance(next_room, room)
 
-                        if distance < nearest_distance and next_room_deadend(node, room) == False: # Entra se la distanza è minore della minima e se la stanza non è un vicolo cieco
+                        if distance < nearest_distance and next_room_deadend(node, room) == False:
                             nearest_distance = distance
                             nearest_dirty_room = room
 
-                        if distance <= nearest_distance and next_room_deadend(node, room) == True: # Entra se la distanza è minore della minima e se la stanza è un vicolo cieco
+                        if distance <= nearest_distance and next_room_deadend(node, room) == True:
                             nearest_distance = distance
                             nearest_dirty_room = room
-                            deadend_rooms.append(room) # Crea una lista di tutte le stanze che sono vicoli ciechi
+                            deadend_rooms.append(room)
 
-                        if distance < nearest_distance and next_room_deadend(node, room) == None: # Entra se la stanza è inaccessibile
-                            print("!!!Stanza Inaccessibile: ", room) 
+                        if distance < nearest_distance and next_room_deadend(node, room) == None:
+                            print("!!!Stanza Inaccessibile: ", room)
 
-                    if cell == "F": # Se la cella è F allora salvala come finale
+                    if cell == "F":
                         final_position = (row_idx, col_idx)
-            
-            if(deadend_rooms != None): # Entra solo se non ci sono stanze con vicolo cieco
+
+            if (deadend_rooms != None):
                 for row_idx, row in enumerate(node.rooms):
                     for col_idx, cell in enumerate(row):
                         if cell == "D" or cell == "V":  # Verifica se la stanza è sporca
                             room = (row_idx, col_idx)
 
-                            if(room in deadend_rooms):
+                            if (room in deadend_rooms):
                                 distance = calculate_distance(next_room, room)
 
-                                if distance <= nearest_distance : # Ricalcola la distanza minima in modo che prioritizzi le stanze con vicolo cieco
+                                if distance <= nearest_distance:
                                     nearest_distance = distance
                                     nearest_dirty_room = room
 
-            # Cerca se tutte le stanze sono pulite
-            dirty_vacuumed = all(find_letter_position(node, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in range(len(rooms[row])))
-            
-            if not dirty_vacuumed: # Se le stanze sporche non sono state pulite tutte
+            # Calcola l'euristica per ogni stanza rispetto ad una stanza sporca adiacente alla sorgente
+            dirty_vacuumed = all(
+                find_letter_position(node, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in
+                range(len(rooms[row])))
+
+            if not dirty_vacuumed:
                 for row_idx, row in enumerate(node.rooms):
                     for col_idx, cell in enumerate(row):
-                        if cell == "X": # Se la stanza è inaccessibile
+                        if cell == "X":
                             h_values[row_idx][col_idx] = math.inf
 
-                        else: # Calcola le distanze a partire da ogni stanza rispetto alla stanza sporca più vicina e appendila alla matrice dell'euristica
+                        else:
                             distance = calculate_distance((row_idx, col_idx), nearest_dirty_room)
                             h_values[row_idx][col_idx] = distance
 
-            
-            if dirty_vacuumed: # Se tutte le stanze sono pulite, calcola l'euristica rispetto alla posizione finale
+            # Se tutte le stanze sono pulite, calcola l'euristica rispetto alla posizione finale
+            if dirty_vacuumed:
                 for row_idx, row in enumerate(rooms):
                     for col_idx, cell in enumerate(row):
-                        if cell == "X": # Se la stanza è inaccessibile
+                        if cell == "X":
                             h_values[row_idx][col_idx] = math.inf
 
-                        else # Calcola le distanze a partire da ogni stanza rispetto alla stanza finale e appendila alla matrice dell'euristica
+                        else:
                             h_values[row_idx][col_idx] = calculate_distance((row_idx, col_idx), final_position)
-          
-            return h_values 
 
+            return h_values
 
-        # Inizializza la matrice dell'euristica in base al nodo corrente e alla stanza sporca più vicina, se non ci sono stanze sporche lo fa rispetto alla stanza finale
         def h_generate(self, rooms):
-            # Inizializza i valori dell'euristica delle stanze a 0
             h_values = [[None for _ in range(len(rooms[0]))] for _ in range(len(rooms))]
 
             dirty_rooms = []
@@ -464,73 +420,72 @@ class SmartVacuum(Problem):
             nearest_distance = math.inf
             deadend_rooms = []
 
-            #Trova la posizione iniziale del problema
+            # Trova la posizione iniziale
             for row_idx, row in enumerate(rooms):
                 for col_idx, cell in enumerate(row):
                     if cell == "S":
                         initial_position = (row_idx, col_idx)
                         print("Initial Position: ", initial_position)
 
-            # Trova la stanza sporca più vicina alla sorgente
+            # Trova una stanza sporca adiacente alla sorgente
             for row_idx, row in enumerate(rooms):
                 for col_idx, cell in enumerate(row):
                     if cell == "D" or cell == "V":  # Verifica se la stanza è sporca
                         room = (row_idx, col_idx)
-                        distance = calculate_distance(initial_position, room) # Trova la distanza tra la stanza iniziale e la stanza sporca della cella
+                        distance = calculate_distance(initial_position, room)
 
-                        if distance < nearest_distance and next_room_deadend_Nonode(rooms, room) == False: # Entra se la distanza è minore della minima e se la stanza non è un vicolo cieco
+                        if distance < nearest_distance and next_room_deadend_Nonode(rooms, room) == False:
                             nearest_distance = distance
                             nearest_dirty_room = room
 
-                        if distance <= nearest_distance and next_room_deadend_Nonode(rooms, room) == True: # Entra se la distanza è minore della minima e se la stanza è un vicolo cieco
+                        if distance <= nearest_distance and next_room_deadend_Nonode(rooms, room) == True:
                             nearest_distance = distance
                             nearest_dirty_room = room
 
-                        if distance < nearest_distance and next_room_deadend_Nonode(rooms, room) == None: # Entra se la stanza è inaccessibile
+                        if distance < nearest_distance and next_room_deadend_Nonode(rooms, room) == None:
                             print("!!!Stanza Inaccessibile: ", room)
 
-            if(deadend_rooms != None): # Entra solo se non ci sono stanze con vicolo cieco
+            if (deadend_rooms != None):
                 for row_idx, row in enumerate(rooms):
                     for col_idx, cell in enumerate(row):
                         if cell == "D" or cell == "V":  # Verifica se la stanza è sporca
                             room = (row_idx, col_idx)
 
-                            if(room in deadend_rooms):
+                            if (room in deadend_rooms):
                                 distance = calculate_distance(initial_position, room)
 
-                                if distance <= nearest_distance : # Ricalcola la distanza minima in modo che prioritizzi le stanze con vicolo cieco
+                                if distance <= nearest_distance:
                                     nearest_distance = distance
                                     nearest_dirty_room = room
 
-            # Cerca se tutte le stanze sono pulite
+                        # Calcola l'euristica per ogni stanza rispetto ad una stanza sporca adiacente alla sorgente
             dirty_vacuumed = all(find_letter_position_Nonode(rooms, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in range(len(rooms[row])))
 
-            if not dirty_vacuumed: # Se le stanze sporche non sono state pulite tutte
-                for row_idx, row in enumerate(node.rooms):
-                    for col_idx, cell in enumerate(row):
-                        if cell == "X": # Se la stanza è inaccessibile
-                            h_values[row_idx][col_idx] = math.inf
+            if not dirty_vacuumed:
+                            for row_idx, row in enumerate(rooms):
+                                for col_idx, cell in enumerate(row):
+                                    if cell == "X":
+                                        h_values[row_idx][col_idx] = math.inf
 
-                        else: # Calcola le distanze a partire da ogni stanza rispetto alla stanza sporca più vicina e appendila alla matrice dell'euristica
-                            distance = calculate_distance((row_idx, col_idx), nearest_dirty_room)
-                            h_values[row_idx][col_idx] = distance
+                                    else:
+                                        distance = calculate_distance((row_idx, col_idx), nearest_dirty_room)
+                                        h_values[row_idx][col_idx] = distance
 
-            
-            if dirty_vacuumed: # Se tutte le stanze sono pulite, calcola l'euristica rispetto alla posizione finale
-                for row_idx, row in enumerate(rooms):
-                    for col_idx, cell in enumerate(row):
-                        if cell == "X": # Se la stanza è inaccessibile
-                            h_values[row_idx][col_idx] = math.inf
+                        # Se tutte le stanze sono pulite, calcola l'euristica rispetto alla posizione finale
+            if dirty_vacuumed:
+                            for row_idx, row in enumerate(rooms):
+                                for col_idx, cell in enumerate(row):
+                                    if cell == "X":
+                                        h_values[row_idx][col_idx] = math.inf
 
-                        else # Calcola le distanze a partire da ogni stanza rispetto alla stanza finale e appendila alla matrice dell'euristica
-                            h_values[row_idx][col_idx] = calculate_distance((row_idx, col_idx), final_position)
+                                    else:
+                                        h_values[row_idx][col_idx] = calculate_distance((row_idx, col_idx), final_position)
 
             return h_values
 
-
-
     class Node:
-        def __init__(self, robot_node, room, rooms, parent = None, action = None, path_cost = 0, frontier = deque(), explored = set()):
+        def __init__(self, robot_node, room, rooms, parent=None, action=None, path_cost=0, frontier=deque(),
+                     explored=set()):
             self.robot_node = robot_node
             self.room = room
             self.rooms = rooms
@@ -540,15 +495,12 @@ class SmartVacuum(Problem):
             self.frontier = frontier or deque()
             self.explored = explored
 
-
         def __repr__(self):
             return f"<Node ('{self.robot_node}', {self.room}, {self.rooms})>"
 
-
         def expand(self, problem, node, deterministic, GreedyAlt):
             return [(self.child_node(problem, node, action))
-                for action in problem.actions(self.robot_node, self.room, node, deterministic, GreedyAlt)]
-
+                    for action in problem.actions(self.robot_node, self.room, node, deterministic, GreedyAlt)]
 
         def child_node(self, problem, node, action):
             next_state = problem.result(node, action, problem)
@@ -561,10 +513,10 @@ class SmartVacuum(Problem):
             next_frontier = node.frontier.copy()  # Copia la frontiera locale
             next_explored = node.explored.copy()  # Copia gli stati esplorati locali
 
-            next_node = Node(next_state[0], next_state[1], next_rooms, self, action, problem.path_cost(self.path_cost, self, action, next_state), next_frontier, next_explored)
+            next_node = Node(next_state[0], next_state[1], next_rooms, self, action,
+                             problem.path_cost(self.path_cost, self, action, next_state), next_frontier, next_explored)
 
             return next_node, next_state
-
 
         def path(self):
             node, path_back = self, []
@@ -575,10 +527,9 @@ class SmartVacuum(Problem):
 
             return list(reversed(path_back))
 
-
-
     class NodeGreedy:
-        def __init__(self, robot_node, room, rooms, f, g, parent = None, action = None, path_cost = 0, frontier = PriorityQueue(), explored = set()):
+        def __init__(self, robot_node, room, rooms, f, g, parent=None, action=None, path_cost=0,
+                     frontier=PriorityQueue(), explored=set()):
             self.robot_node = robot_node
             self.room = room
             self.rooms = rooms
@@ -590,23 +541,19 @@ class SmartVacuum(Problem):
             self.frontier = frontier or PriorityQueue()
             self.explored = explored or set()
 
-
         def __lt__(self, other):
             return self.f < other.f
-
 
         def __repr__(self):
             return f"<Node ('{self.robot_node}', {self.room}, {self.rooms})>"
 
-
         def expand(self, problem, node, deterministic, GreedyAlt):
             return [(self.child_node(problem, action, node))
-                for action in problem.actions(self.robot_node, self.room, node, deterministic, GreedyAlt)]
-
+                    for action in problem.actions(self.robot_node, self.room, node, deterministic, GreedyAlt)]
 
         def child_node(self, problem, action, node):
             next_state = problem.result(node, action, problem)
-            
+
             if next_state is None:
                 stato = ("'" + self.robot_node + "'", {self.room})
                 return None, None
@@ -616,29 +563,28 @@ class SmartVacuum(Problem):
             next_frontier = copy.deepcopy(node.frontier)  # Copia la frontiera locale
             next_explored = node.explored.copy()  # Copia gli stati esplorati locali
             next_g = problem.h_update(next_room, node)
-            next_f = problem.h_extract(next_room, next_g)                    
+            next_f = problem.h_extract(next_room, next_g)
 
-            next_node = NodeGreedy(next_state[0], next_state[1], next_rooms, next_f, next_g, self, action, problem.path_cost(self.path_cost, self, action, next_state), next_frontier, next_explored)
+            next_node = NodeGreedy(next_state[0], next_state[1], next_rooms, next_f, next_g, self, action,
+                                   problem.path_cost(self.path_cost, self, action, next_state), next_frontier,
+                                   next_explored)
 
             return next_node, next_state
 
-
         def path(self):
             node, path_back = self, []
-            
+
             while node:
                 path_back.append(node)
                 node = node.parent
 
             return list(reversed(path_back))
 
-
-
     def DfsAlt(problem, deterministic):
-        max_count = len(rooms) * len(rooms) * 3
+        max_count = len(rooms) * len(rooms) * 8
         count = 0
 
-        if(not deterministic):
+        if (not deterministic):
             nodi_finali = []
 
         initial_state = find_initial_position(rooms)
@@ -652,9 +598,9 @@ class SmartVacuum(Problem):
         print("--")
         print("--")
         print("Startup Algoritmo: ")
-        print("Frontiera:" ,node.frontier)
+        print("Frontiera:", node.frontier)
 
-        print("Esplorati: " , node.explored)
+        print("Esplorati: ", node.explored)
         print("Nodo Corrente: ", None)
         print("")
         print("Matrice Corrente: ")
@@ -666,13 +612,13 @@ class SmartVacuum(Problem):
             print("--")
 
             count += 1
-            
+
             print("Iterazione (while): ", count)
-            print("Frontiera pre pop: ",node.frontier)
+            print("Frontiera pre pop: ", node.frontier)
 
             node = node.frontier.popleft()
 
-            print("Frontiera post pop: ",node.frontier)
+            print("Frontiera post pop: ", node.frontier)
 
             if problem.goal_test((node.robot_node, (node.room)), node):
                 return node, dirty_count, Vdirty_count
@@ -686,18 +632,18 @@ class SmartVacuum(Problem):
             stampa_matrice(node.rooms)
             print("")
 
-            for child, stato in node.expand(problem, node, deterministic, GreedyAlt = False):
-                if child != None and child.room not in node.explored and (child.robot_node, child.room) not in [(node.robot_node, node.room) for node in node.frontier]:
-                    node.frontier.append(child)
+            for child, stato in node.expand(problem, node, deterministic, GreedyAlt=False):
+                if child != None and child.room not in node.explored and (child.robot_node, child.room) not in [
+                    (node.robot_node, node.room) for node in node.frontier]:
+                        node.frontier.append(child)
 
         return None, dirty_count, Vdirty_count
 
-
-    #f è l'euristica
-    def DfsAlt_greedy(problem,g):
-        max_count = len(rooms) * len(rooms) * 3
+    # g è l'euristica
+    def DfsAlt_greedy(problem, g):
+        max_count = len(rooms) * len(rooms) * 20
         count = 0
-  
+
         initial_state = find_initial_position(rooms)
         state, room = initial_state
 
@@ -716,18 +662,18 @@ class SmartVacuum(Problem):
 
             print("Nodo Corrente: ", node)
 
-            if problem.goal_test((node.robot_node, (node.room)), node):                 
-                  return node, dirty_count, Vdirty_count
+            if problem.goal_test((node.robot_node, (node.room)), node):
+                return node, dirty_count, Vdirty_count
 
             node.explored.add(node.room)
 
-            for child, stato in node.expand(problem, node, deterministic = True, GreedyAlt = True):
-                if child != None and child.room not in node.explored and not node.frontier.__contains__((child.robot_node, child.room)):
+            for child, stato in node.expand(problem, node, deterministic=True, GreedyAlt=True):
+                if child != None and child.room not in node.explored and not node.frontier.__contains__(
+                        (child.robot_node, child.room)):
                     node.frontier.append(child)
                     print(child.f)
-                    
-        return None, dirty_count, Vdirty_count
 
+        return None, dirty_count, Vdirty_count
 
     def GreedyAlt(problem, h=None):
         # Se la funzione euristica h non è specificata, viene utilizzata la funzione h predefinita del problema.
@@ -736,8 +682,7 @@ class SmartVacuum(Problem):
 
         return DfsAlt_greedy(problem, h_cost)
 
-
-    #Funzione che Ritorna la posizione all'interno della matrice di S
+    # Funzione che Ritorna la posizione all'interno della matrice di S
     def find_initial_position(rooms):
         for row_idx, row in enumerate(rooms):
             for col_idx, cell in enumerate(row):
@@ -748,33 +693,14 @@ class SmartVacuum(Problem):
 
         return None
 
-
-    #Funzione che Ritorna la posizione all'interno della matrice di S
-    def find_terminal_position(rooms):
-        for row_idx, row in enumerate(rooms):
-            for col_idx, cell in enumerate(row):
-                if cell == "F":
-                    position = (row_idx, col_idx)  # Aggiungi 1 agli indici per ottenere le coordinate basate su 1
-
-                    return (position)  # Ritorna una tupla con il simbolo e le coordinate
-
-        return None
-
-
     def find_letter_position(node, row, col):
         return node.rooms[row][col]
-    
 
     def find_letter_position_Nonode(rooms, row, col):
         return rooms[row][col]
 
-
     def update_letter_position(node, row, col, new_letter):
         node.rooms[row][col] = new_letter
-
-
-    
-
 
     def count_dirty_rooms(rooms):
         dirty_count = 0
@@ -789,14 +715,12 @@ class SmartVacuum(Problem):
 
         return dirty_count, Vdirty_count
 
-   
     def calculate_distance(room1, room2):
-      #Calcolo la distanza usando l'euristica di Manhattan   
+        # Calcolo la distanza usando l'euristica di Manhattan
         dx = abs(room1[0] - room2[0])
         dy = abs(room1[1] - room2[1])
-        
-        return (dx + dy)
 
+        return (dx + dy)
 
     def next_room_deadend(node, room):
         robot_row, robot_col = room
@@ -808,22 +732,21 @@ class SmartVacuum(Problem):
         left_blocked = robot_col == 0 or find_letter_position(node, room[0], room[1] - 1) == "X"
         right_blocked = robot_col >= len(rooms) - 1 or find_letter_position(node, room[0], room[1] + 1) == "X"
 
-        if(up_blocked == True):
+        if (up_blocked == True):
             blocked_directions += 1
-        if(down_blocked == True):
+        if (down_blocked == True):
             blocked_directions += 1
-        if(left_blocked == True):
+        if (left_blocked == True):
             blocked_directions += 1
-        if(right_blocked == True):
+        if (right_blocked == True):
             blocked_directions += 1
 
-        if(blocked_directions == 3):
+        if (blocked_directions == 3):
             return True
-        if(blocked_directions == 4):
+        if (blocked_directions == 4):
             return None
         else:
             return False
-
 
     def next_room_deadend_Nonode(rooms, room):
         robot_row, robot_col = room
@@ -838,64 +761,75 @@ class SmartVacuum(Problem):
 
         right_blocked = robot_col >= len(rooms) - 1 or find_letter_position_Nonode(rooms, room[0], room[1] + 1) == "X"
 
-        if(up_blocked == True):
+        if (up_blocked == True):
             blocked_directions += 1
 
-        if(down_blocked == True):
+        if (down_blocked == True):
             blocked_directions += 1
 
-        if(left_blocked == True):
+        if (left_blocked == True):
             blocked_directions += 1
 
-        if(right_blocked == True):
+        if (right_blocked == True):
             blocked_directions += 1
 
-        if(blocked_directions == 3):
-          
+        if (blocked_directions == 3):
             return True
-        if(blocked_directions == 4):
+        if (blocked_directions == 4):
 
             return None
         else:
 
             return False
 
-
     def robot_stuck(node, explored):
         robot_row, robot_col = node.room
 
         # Verifica se il robot è bloccato in tutte e quattro le direzioni
-        up_blocked = robot_row == 0 or find_letter_position(node, node.room[0] - 1, node.room[1]) == "X" or (node.room[0] - 1, node.room[1]) in explored
+        up_blocked = robot_row == 0 or find_letter_position(node, node.room[0] - 1, node.room[1]) == "X" or (
+        node.room[0] - 1, node.room[1]) in explored
 
-        down_blocked = robot_row >= len(rooms) - 1 or find_letter_position(node, node.room[0] + 1, node.room[1]) == "X" or (node.room[0] + 1, node.room[1]) in explored
+        down_blocked = robot_row >= len(rooms) - 1 or find_letter_position(node, node.room[0] + 1,
+                                                                           node.room[1]) == "X" or (
+                       node.room[0] + 1, node.room[1]) in explored
 
-        left_blocked = robot_col == 0 or find_letter_position(node, node.room[0], node.room[1] - 1) == "X" or (node.room[0], node.room[1] - 1) in explored
+        left_blocked = robot_col == 0 or find_letter_position(node, node.room[0], node.room[1] - 1) == "X" or (
+        node.room[0], node.room[1] - 1) in explored
 
-        right_blocked = robot_col >= len(rooms) - 1 or find_letter_position(node, node.room[0], node.room[1] + 1) == "X" or (node.room[0], node.room[1] + 1) in explored
+        right_blocked = robot_col >= len(rooms) - 1 or find_letter_position(node, node.room[0],
+                                                                            node.room[1] + 1) == "X" or (
+                        node.room[0], node.room[1] + 1) in explored
 
-        if(up_blocked == True and down_blocked == True and left_blocked == True and right_blocked == True):
+        if (up_blocked == True and down_blocked == True and left_blocked == True and right_blocked == True):
 
-            if(up_blocked == True and robot_row != 0 and find_letter_position(node, node.room[0] - 1, node.room[1]) != "X"):
+            if (up_blocked == True and robot_row != 0 and find_letter_position(node, node.room[0] - 1,
+                                                                               node.room[1]) != "X"):
                 node.explored.remove((node.room[0] - 1, node.room[1]))
-                print("Ho rimosso",(node.room[0] - 1, node.room[1]),"dagli esplorati per permettere al robot di spostarsi")
+                print("Ho rimosso", (node.room[0] - 1, node.room[1]),
+                      "dagli esplorati per permettere al robot di spostarsi")
 
-            if(down_blocked == True and robot_row < len(rooms) - 1 and find_letter_position(node, node.room[0] + 1, node.room[1]) != "X"):
+            if (down_blocked == True and robot_row < len(rooms) - 1 and find_letter_position(node, node.room[0] + 1,
+                                                                                             node.room[1]) != "X"):
                 node.explored.remove((node.room[0] + 1, node.room[1]))
-                print("Ho rimosso",(node.room[0] + 1, node.room[1]),"dagli esplorati per permettere al robot di spostarsi")
+                print("Ho rimosso", (node.room[0] + 1, node.room[1]),
+                      "dagli esplorati per permettere al robot di spostarsi")
 
-            if(left_blocked == True and robot_col != 0 and find_letter_position(node, node.room[0], node.room[1] - 1) != "X"):
+            if (left_blocked == True and robot_col != 0 and find_letter_position(node, node.room[0],
+                                                                                 node.room[1] - 1) != "X"):
                 node.explored.remove((node.room[0], node.room[1] - 1))
-                print("Ho rimosso",(node.room[0], node.room[1] - 1),"dagli esplorati per permettere al robot di spostarsi")
+                print("Ho rimosso", (node.room[0], node.room[1] - 1),
+                      "dagli esplorati per permettere al robot di spostarsi")
 
-            if(right_blocked == True and robot_col < len(rooms) - 1 and find_letter_position(node, node.room[0], node.room[1] + 1) != "X"):
+            if (right_blocked == True and robot_col < len(rooms) - 1 and find_letter_position(node, node.room[0],
+                                                                                              node.room[1] + 1) != "X"):
                 node.explored.remove((node.room[0], node.room[1] + 1))
-                print("Ho rimosso",(node.room[0], node.room[1] + 1),"dagli esplorati per permettere al robot di spostarsi")
+                print("Ho rimosso", (node.room[0], node.room[1] + 1),
+                      "dagli esplorati per permettere al robot di spostarsi")
 
-
-    if(SF == True):
+    if (SF == True):
         problema = SmartVacuum(Problem)
 
-        if(search_algorithm == "DfsAlt"):
+        if (search_algorithm == "DfsAlt"):
             final_nodes = []
             nodo_best = None
 
@@ -907,65 +841,67 @@ class SmartVacuum(Problem):
             print("--")
             print("Scelta migliore algoritmo: ")
 
-            if(nodo_deterministico != None):
+            if (nodo_deterministico != None):
                 final_nodes.append(nodo_deterministico)
                 print("Costo Nodo Deterministico: ", nodo_deterministico.path_cost)
 
             else:
                 print("Costo Nodo Deterministico: ", None)
 
-            if(nodo_randomico != None):
+            if (nodo_randomico != None):
                 final_nodes.append(nodo_randomico)
                 print("Costo Nodo Randomico: ", nodo_randomico.path_cost)
 
             else:
                 print("Costo Nodo Randomico: ", None)
 
-            if(nodo_deterministico != None):
+            if (nodo_deterministico != None):
                 nodo_best = nodo_deterministico
                 deterministic = True
 
-            if(nodo_randomico != None):
+            if (nodo_randomico != None):
                 nodo_best = nodo_randomico
                 deterministic = False
 
-            if(nodo_deterministico != None and nodo_randomico != None):
+            if (nodo_deterministico != None and nodo_randomico != None):
                 nodo_best = min(final_nodes, key=lambda node: node.path_cost)
 
-                if(nodo_best.path_cost == nodo_deterministico.path_cost):
+                if (nodo_best.path_cost == nodo_deterministico.path_cost):
                     deterministic = True
 
                 print("Costo migliore: ", nodo_best.path_cost)
 
-            if(nodo_best != None):
+            if (nodo_best != None):
                 print(nodo_best)
                 GreedyAlt = False
-                return nodo_best, dirty_count, Vdirty_count, deterministic, GreedyAlt 
-                
+                return nodo_best, dirty_count, Vdirty_count, deterministic, GreedyAlt
+
 
             else:
+
+
                 print("--")
                 print("--")
                 print("Output Algoritmo: ")
-                print("!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
+                print(
+                    "!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
                 print("Algoritmo usato: DfsAlt Deterministica e DfsAlt Randomica")
 
-
-        if(search_algorithm == "GreedyAlt"):
+        if (search_algorithm == "GreedyAlt"):
             result, dirty_count, Vdirty_count = GreedyAlt(problema)
-            
+
             if result != None:
                 deterministic = True
                 GreedyAlt = False
+                print(result.path_cost)
                 return result, dirty_count, Vdirty_count, deterministic, GreedyAlt
             else:
                 print("--")
                 print("--")
                 print("Output Algoritmo: ")
-                print("!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
+                print(
+                    "!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
                 print("Algoritmo usato: GreedyAlt")
-
-
 
 
 ## INTERFACCIA GRAFICA
@@ -975,6 +911,7 @@ from tkinter import filedialog
 from PIL import Image, ImageTk
 import numpy as np
 from ttkthemes import ThemedStyle
+
 
 class ImageProcessingApp:
     def __init__(self, root):
@@ -989,10 +926,9 @@ class ImageProcessingApp:
         self.output_label = tk.Label(self.root, bg="light gray")
         self.output_label.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
-        #TEXT AREA
-        #self.output_text = tk.Text(self.root, wrap=tk.WORD, height=10, width=50)  # Definisci altezza e larghezza desiderate
-        #self.output_text.grid(row=1, column=1, columnspan=2, padx=10, pady=10, sticky="nsew")
-
+        # TEXT AREA
+        # self.output_text = tk.Text(self.root, wrap=tk.WORD, height=10, width=50)  # Definisci altezza e larghezza desiderate
+        # self.output_text.grid(row=1, column=1, columnspan=2, padx=10, pady=10, sticky="nsew")
 
         button_frame = tk.Frame(self.root)
         button_frame.grid(row=0, column=0, columnspan=2, pady=10)
@@ -1013,53 +949,49 @@ class ImageProcessingApp:
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_columnconfigure(1, weight=1)
 
-
-    
     def stampa_output(self, final_node, dirty_count, Vdirty_count, deterministic, GreedyAlt):
-            count = 0
+        count = 0
 
-            print('--')
+        print('--')
+        print("--")
+        print("Output Algoritmo: ")
+        print("Nodo Finale: ", final_node)
+        print("Percorso dei nodi: ")
+
+        for node in final_node.path():
+            print(node.room, " Azione per arrivare al nodo: ", node.action)
+        print("--")
+
+        for node in final_node.path():
+            count += 1
+            print("")
+            print("Passo: ", count)
+            stampa_matrice(node.rooms)
             print("--")
-            print("Output Algoritmo: ")
-            print("Nodo Finale: ", final_node)
-            print("Percorso dei nodi: ")
 
-            for node in final_node.path():
-                print(node.room, " Azione per arrivare al nodo: ",node.action)
-            print("--")
-
-            for node in final_node.path():
-                count += 1
+        if GreedyAlt == True:
+            for node in node.path():
                 print("")
                 print("Passo: ", count)
-                stampa_matrice(node.rooms)
+                stampa_matrice(node.g)
                 print("--")
+            print("--")
 
-            if GreedyAlt == True:
-                for node in node.path():
-                    print("")
-                    print("Passo: ", count)
-                    stampa_matrice(node.g)
-                    print("--")
-                print("--")
+        print("Costo Path distanza: ", final_node.path_cost)
+        print("Costo Pulizia(dirty): ", dirty_count)
+        print("Costo Pulizia(Vdirty): ", Vdirty_count)
 
-            print("Costo Path distanza: ", final_node.path_cost)
-            print("Costo Pulizia(dirty): ", dirty_count)
-            print("Costo Pulizia(Vdirty): ", Vdirty_count) 
+        if GreedyAlt == True:
+            print("Costo Euristica: ", final_node.f)
+        print("Costo totale: ", final_node.path_cost + dirty_count + Vdirty_count)
 
-            if GreedyAlt == True:
-                print("Costo Euristica: ", final_node.f)
-            print("Costo totale: ", final_node.path_cost + dirty_count + Vdirty_count)
-
-            if GreedyAlt == False:
-                if(deterministic == True):
-                    print("Algoritmo usato: DfsAlt Deterministica")
-                else:
-                    print("Algoritmo usato: DfsAlt Randomica")
+        if GreedyAlt == False:
+            if (deterministic == True):
+                print("Algoritmo usato: DfsAlt Deterministica")
             else:
-                print("Algoritmo usato: GreedyAlt")
-
-
+                print("Algoritmo usato: DfsAlt Randomica")
+        else:
+            print("Algoritmo usato: GreedyAlt")
 
     def redirect_output(self, text):
         self.output_text.insert(tk.END, text)
@@ -1077,7 +1009,6 @@ class ImageProcessingApp:
 
     def update_output(self, message):
         self.output_label.config(text=message)
-
 
     def process_image(self, image):
         # Placeholder for image processing
@@ -1106,14 +1037,14 @@ class ImageProcessingApp:
 
         self.update_output(testo_formattato)
         return
-        
 
     def run_astar(self):
         if not hasattr(self, 'image_matrix'):
             self.update_output("Errore: Nessuna immagine caricata.")
             return
         self.update_output("Esecuzione ASTAR sulla matrice dell'immagine...")
-        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt = run_program(self.image_path, 'GreedyAlt')
+        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt = run_program(self.image_path,
+                                                                                             'GreedyAlt')
 
         var_da_stampare = []
         for i, node in enumerate(nodo_stampare.path()):
@@ -1127,21 +1058,17 @@ class ImageProcessingApp:
         self.update_output(testo_formattato)
         return
 
-
-
-
-
     def close_app(self):
         self.root.destroy()
-    
+
+
 def main():
     root = tk.Tk()
     app = ImageProcessingApp(root)
     root.mainloop()
-    
+
 
 if __name__ == "__main__":
     main()
 
-#AGGIORNAMENTO ALLE 1:30 NOTTE
-
+# AGGIORNAMENTO ALLE 1:30 NOTTE
