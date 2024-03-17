@@ -167,19 +167,19 @@ def run_program(image_name, search_algorithm):
                     fixed_actions.append("Vclean")
 
                 if (robot_row > 0):
-                    up = self.h_extract((room[0] - 1, room[1]), node.g) + node.path_cost
+                    up = self.h_extract((room[0] - 1, room[1]), node.g)
                     up_deadend = next_room_deadend(node, (room[0] - 1, room[1]))
 
                 if (robot_row < len(rooms) - 1):
-                    down = self.h_extract((room[0] + 1, room[1]), node.g) + node.path_cost
+                    down = self.h_extract((room[0] + 1, room[1]), node.g)
                     down_deadend = next_room_deadend(node, (room[0] + 1, room[1]))
 
                 if (robot_col > 0):
-                    left = self.h_extract((room[0], room[1] - 1), node.g) + node.path_cost
+                    left = self.h_extract((room[0], room[1] - 1), node.g)
                     left_deadend = next_room_deadend(node, (room[0], room[1] - 1))
 
                 if (robot_col < len(rooms) - 1):
-                    right = self.h_extract((room[0], room[1] + 1), node.g) + node.path_cost
+                    right = self.h_extract((room[0], room[1] + 1), node.g)
                     right_deadend = next_room_deadend(node, (room[0], room[1] + 1))
 
                 do = min(up, down, left, right)
@@ -319,7 +319,11 @@ def run_program(image_name, search_algorithm):
                 lettera = find_letter_position(node, room[0], room[1] + 1)
                 robot_node = (lettera, (room[0], room[1] + 1))
 
-            robot_stuck(node, node.explored)
+            dirty_vacuumed = all(
+                find_letter_position(node, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in
+                range(len(rooms[row])))
+            if(not dirty_vacuumed):
+                robot_stuck(node, node.explored)
 
             return robot_node
 
@@ -661,6 +665,8 @@ def run_program(image_name, search_algorithm):
             node = node.frontier.pop()
 
             print("Nodo Corrente: ", node)
+            print(count)
+            stampa_matrice(node.g)
 
             if problem.goal_test((node.robot_node, (node.room)), node):
                 return node, dirty_count, Vdirty_count
@@ -894,6 +900,7 @@ def run_program(image_name, search_algorithm):
                 deterministic = True
                 GreedyAlt = False
                 print(result.path_cost)
+
                 return result, dirty_count, Vdirty_count, deterministic, GreedyAlt
             else:
                 print("--")
