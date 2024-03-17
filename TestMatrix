@@ -217,6 +217,8 @@ def run_program(image_name, search_algorithm):
                         else:
                             possible_actions.append("move_right")
 
+                robot_stuck(node, node.explored, possible_actions)
+
                 print("Azioni Possibili: ", fixed_actions + possible_actions)
                 return fixed_actions + possible_actions
 
@@ -260,6 +262,8 @@ def run_program(image_name, search_algorithm):
                     lettera = find_letter_position(node, room[0], room[1] + 1)
                     if lettera != self.deny:
                         possible_actions.append("move_right")
+
+                robot_stuck(node, node.explored, possible_actions)
 
                 if (not deterministic):
                     # Lista delle azioni rimanenti
@@ -319,11 +323,9 @@ def run_program(image_name, search_algorithm):
                 lettera = find_letter_position(node, room[0], room[1] + 1)
                 robot_node = (lettera, (room[0], room[1] + 1))
 
-            dirty_vacuumed = all(
-                find_letter_position(node, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in
-                range(len(rooms[row])))
-            if(not dirty_vacuumed):
-                robot_stuck(node, node.explored)
+
+
+
 
             return robot_node
 
@@ -335,6 +337,7 @@ def run_program(image_name, search_algorithm):
                     find_letter_position(node, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in
                     range(len(rooms[row])))
                 if dirty_vacuumed:
+                    
                     return True
                 else:
                     print("Per entrare nella destinazione finale(D) vanno pulite tutte le stanze(D,V).")
@@ -569,6 +572,9 @@ def run_program(image_name, search_algorithm):
             next_g = problem.h_update(next_room, node)
             next_f = problem.h_extract(next_room, next_g)
 
+            print(next_state)
+            print(next_explored)
+
             next_node = NodeGreedy(next_state[0], next_state[1], next_rooms, next_f, next_g, self, action,
                                    problem.path_cost(self.path_cost, self, action, next_state), next_frontier,
                                    next_explored)
@@ -788,48 +794,57 @@ def run_program(image_name, search_algorithm):
 
             return False
 
-    def robot_stuck(node, explored):
+    def robot_stuck(node, explored, azioni):
         robot_row, robot_col = node.room
 
         # Verifica se il robot è bloccato in tutte e quattro le direzioni
         up_blocked = robot_row == 0 or find_letter_position(node, node.room[0] - 1, node.room[1]) == "X" or (
-        node.room[0] - 1, node.room[1]) in explored
+        node.room[0] - 1, node.room[1]) in explored or "move_up" not in azioni
 
         down_blocked = robot_row >= len(rooms) - 1 or find_letter_position(node, node.room[0] + 1,
                                                                            node.room[1]) == "X" or (
-                       node.room[0] + 1, node.room[1]) in explored
+                       node.room[0] + 1, node.room[1]) in explored or "move_down" not in azioni
 
         left_blocked = robot_col == 0 or find_letter_position(node, node.room[0], node.room[1] - 1) == "X" or (
-        node.room[0], node.room[1] - 1) in explored
+        node.room[0], node.room[1] - 1) in explored or "move_left" not in azioni
 
         right_blocked = robot_col >= len(rooms) - 1 or find_letter_position(node, node.room[0],
                                                                             node.room[1] + 1) == "X" or (
-                        node.room[0], node.room[1] + 1) in explored
+                        node.room[0], node.room[1] + 1) in explored or "move_right" not in azioni
+        print("ENTRA?")
+        print("UP",up_blocked)
+        print("DOWN", down_blocked)
+        print("LEFT", left_blocked)
+        print("RIGHT", right_blocked)
 
         if (up_blocked == True and down_blocked == True and left_blocked == True and right_blocked == True):
-
+            print("BLOCCATO DIOCANE")
             if (up_blocked == True and robot_row != 0 and find_letter_position(node, node.room[0] - 1,
                                                                                node.room[1]) != "X"):
-                node.explored.remove((node.room[0] - 1, node.room[1]))
-                print("Ho rimosso", (node.room[0] - 1, node.room[1]),
-                      "dagli esplorati per permettere al robot di spostarsi")
+                if((node.room[0] - 1, node.room[1]) in node.explored):
+                        node.explored.remove((node.room[0] - 1, node.room[1]))
+                        print("Ho rimosso", (node.room[0] - 1, node.room[1]),
+                            "dagli esplorati per permettere al robot di spostarsi")
 
             if (down_blocked == True and robot_row < len(rooms) - 1 and find_letter_position(node, node.room[0] + 1,
                                                                                              node.room[1]) != "X"):
-                node.explored.remove((node.room[0] + 1, node.room[1]))
-                print("Ho rimosso", (node.room[0] + 1, node.room[1]),
+                if ((node.room[0] + 1, node.room[1]) in node.explored):
+                        node.explored.remove((node.room[0] + 1, node.room[1]))
+                        print("Ho rimosso", (node.room[0] + 1, node.room[1]),
                       "dagli esplorati per permettere al robot di spostarsi")
 
             if (left_blocked == True and robot_col != 0 and find_letter_position(node, node.room[0],
                                                                                  node.room[1] - 1) != "X"):
-                node.explored.remove((node.room[0], node.room[1] - 1))
-                print("Ho rimosso", (node.room[0], node.room[1] - 1),
+                if ((node.room[0], node.room[1] - 1) in node.explored):
+                        node.explored.remove((node.room[0], node.room[1] - 1))
+                        print("Ho rimosso", (node.room[0], node.room[1] - 1),
                       "dagli esplorati per permettere al robot di spostarsi")
 
             if (right_blocked == True and robot_col < len(rooms) - 1 and find_letter_position(node, node.room[0],
                                                                                               node.room[1] + 1) != "X"):
-                node.explored.remove((node.room[0], node.room[1] + 1))
-                print("Ho rimosso", (node.room[0], node.room[1] + 1),
+                if ((node.room[0], node.room[1] + 1) in node.explored):
+                        node.explored.remove((node.room[0], node.room[1] + 1))
+                        print("Ho rimosso", (node.room[0], node.room[1] + 1),
                       "dagli esplorati per permettere al robot di spostarsi")
 
     if (SF == True):
