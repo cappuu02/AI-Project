@@ -382,8 +382,9 @@ class SmartVacuum(Problem):
             row, col = room
             return h_value[row][col]
 
-
+        # Aggiorna la matrice dell'euristica in base al nodo corrente e alla stanza sporca più vicina, se non ci sono stanze sporche lo fa rispetto alla stanza finale
         def h_update(self, next_room, node):
+            # Inizializza i valori dell'euristica delle stanze a 0
             h_values = [[None for _ in range(len(rooms[0]))] for _ in range(len(rooms))]
             
             dirty_rooms = []
@@ -391,29 +392,29 @@ class SmartVacuum(Problem):
             nearest_distance = math.inf
             deadend_rooms = []
 
-            # Trova una stanza sporca adiacente al nodo attuale
+            # Trova una stanza sporca il più vicino possibile alla stanza attuale 
             for row_idx, row in enumerate(node.rooms):
                 for col_idx, cell in enumerate(row):
                     if cell == "D" or cell == "V":  # Verifica se la stanza è sporca
                         room = (row_idx, col_idx)
-                        distance = calculate_distance(next_room, room)
+                        distance = calculate_distance(next_room, room) # Trova la distanza tra la stanza attuale e la stanza sporca della cella
 
-                        if distance < nearest_distance and next_room_deadend(node, room) == False:
+                        if distance < nearest_distance and next_room_deadend(node, room) == False: # Entra se la distanza è minore della minima e se la stanza non è un vicolo cieco
                             nearest_distance = distance
                             nearest_dirty_room = room
 
-                        if distance <= nearest_distance and next_room_deadend(node, room) == True:
+                        if distance <= nearest_distance and next_room_deadend(node, room) == True: # Entra se la distanza è minore della minima e se la stanza è un vicolo cieco
                             nearest_distance = distance
                             nearest_dirty_room = room
-                            deadend_rooms.append(room)
+                            deadend_rooms.append(room) # Crea una lista di tutte le stanze che sono vicoli ciechi
 
-                        if distance < nearest_distance and next_room_deadend(node, room) == None:
-                            print("!!!Stanza Inaccessibile: ", room)
+                        if distance < nearest_distance and next_room_deadend(node, room) == None: # Entra se la stanza è inaccessibile
+                            print("!!!Stanza Inaccessibile: ", room) 
 
-                    if cell == "F":
+                    if cell == "F": # Se la cella è F allora salvala come finale
                         final_position = (row_idx, col_idx)
-                        
-            if(deadend_rooms != None):
+            
+            if(deadend_rooms != None): # Entra solo se non ci sono stanze con vicolo cieco
                 for row_idx, row in enumerate(node.rooms):
                     for col_idx, cell in enumerate(row):
                         if cell == "D" or cell == "V":  # Verifica se la stanza è sporca
@@ -422,37 +423,39 @@ class SmartVacuum(Problem):
                             if(room in deadend_rooms):
                                 distance = calculate_distance(next_room, room)
 
-                                if distance <= nearest_distance :
+                                if distance <= nearest_distance : # Ricalcola la distanza minima in modo che prioritizzi le stanze con vicolo cieco
                                     nearest_distance = distance
                                     nearest_dirty_room = room
 
-            # Calcola l'euristica per ogni stanza rispetto ad una stanza sporca adiacente alla sorgente
+            # Cerca se tutte le stanze sono pulite
             dirty_vacuumed = all(find_letter_position(node, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in range(len(rooms[row])))
             
-            if not dirty_vacuumed:
+            if not dirty_vacuumed: # Se le stanze sporche non sono state pulite tutte
                 for row_idx, row in enumerate(node.rooms):
                     for col_idx, cell in enumerate(row):
-                        if cell == "X":
+                        if cell == "X": # Se la stanza è inaccessibile
                             h_values[row_idx][col_idx] = math.inf
 
-                        else:  
+                        else: # Calcola le distanze a partire da ogni stanza rispetto alla stanza sporca più vicina e appendila alla matrice dell'euristica
                             distance = calculate_distance((row_idx, col_idx), nearest_dirty_room)
                             h_values[row_idx][col_idx] = distance
 
-            # Se tutte le stanze sono pulite, calcola l'euristica rispetto alla posizione finale
-            if dirty_vacuumed:
+            
+            if dirty_vacuumed: # Se tutte le stanze sono pulite, calcola l'euristica rispetto alla posizione finale
                 for row_idx, row in enumerate(rooms):
                     for col_idx, cell in enumerate(row):
-                        if cell == "X":
+                        if cell == "X": # Se la stanza è inaccessibile
                             h_values[row_idx][col_idx] = math.inf
 
-                        else:
+                        else # Calcola le distanze a partire da ogni stanza rispetto alla stanza finale e appendila alla matrice dell'euristica
                             h_values[row_idx][col_idx] = calculate_distance((row_idx, col_idx), final_position)
           
-            return h_values
+            return h_values 
 
 
+        # Inizializza la matrice dell'euristica in base al nodo corrente e alla stanza sporca più vicina, se non ci sono stanze sporche lo fa rispetto alla stanza finale
         def h_generate(self, rooms):
+            # Inizializza i valori dell'euristica delle stanze a 0
             h_values = [[None for _ in range(len(rooms[0]))] for _ in range(len(rooms))]
 
             dirty_rooms = []
@@ -461,32 +464,32 @@ class SmartVacuum(Problem):
             nearest_distance = math.inf
             deadend_rooms = []
 
-            #Trova la posizione iniziale
+            #Trova la posizione iniziale del problema
             for row_idx, row in enumerate(rooms):
                 for col_idx, cell in enumerate(row):
                     if cell == "S":
                         initial_position = (row_idx, col_idx)
                         print("Initial Position: ", initial_position)
 
-            # Trova una stanza sporca adiacente alla sorgente
+            # Trova la stanza sporca più vicina alla sorgente
             for row_idx, row in enumerate(rooms):
                 for col_idx, cell in enumerate(row):
                     if cell == "D" or cell == "V":  # Verifica se la stanza è sporca
                         room = (row_idx, col_idx)
-                        distance = calculate_distance(initial_position, room)
+                        distance = calculate_distance(initial_position, room) # Trova la distanza tra la stanza iniziale e la stanza sporca della cella
 
-                        if distance < nearest_distance and next_room_deadend_Nonode(rooms, room) == False:
+                        if distance < nearest_distance and next_room_deadend_Nonode(rooms, room) == False: # Entra se la distanza è minore della minima e se la stanza non è un vicolo cieco
                             nearest_distance = distance
                             nearest_dirty_room = room
 
-                        if distance <= nearest_distance and next_room_deadend_Nonode(rooms, room) == True:
+                        if distance <= nearest_distance and next_room_deadend_Nonode(rooms, room) == True: # Entra se la distanza è minore della minima e se la stanza è un vicolo cieco
                             nearest_distance = distance
                             nearest_dirty_room = room
 
-                        if distance < nearest_distance and next_room_deadend_Nonode(rooms, room) == None:
+                        if distance < nearest_distance and next_room_deadend_Nonode(rooms, room) == None: # Entra se la stanza è inaccessibile
                             print("!!!Stanza Inaccessibile: ", room)
 
-            if(deadend_rooms != None):
+            if(deadend_rooms != None): # Entra solo se non ci sono stanze con vicolo cieco
                 for row_idx, row in enumerate(rooms):
                     for col_idx, cell in enumerate(row):
                         if cell == "D" or cell == "V":  # Verifica se la stanza è sporca
@@ -495,21 +498,32 @@ class SmartVacuum(Problem):
                             if(room in deadend_rooms):
                                 distance = calculate_distance(initial_position, room)
 
-                                if distance <= nearest_distance :
+                                if distance <= nearest_distance : # Ricalcola la distanza minima in modo che prioritizzi le stanze con vicolo cieco
                                     nearest_distance = distance
                                     nearest_dirty_room = room
 
+            # Cerca se tutte le stanze sono pulite
             dirty_vacuumed = all(find_letter_position_Nonode(rooms, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in range(len(rooms[row])))
 
-            # Calcola l'euristica per ogni stanza rispetto ad una stanza sporca adiacente alla sorgente
-            for row_idx, row in enumerate(rooms):
-                for col_idx, cell in enumerate(row):
-                    if cell == "X":
-                        h_values[row_idx][col_idx] = math.inf
+            if not dirty_vacuumed: # Se le stanze sporche non sono state pulite tutte
+                for row_idx, row in enumerate(node.rooms):
+                    for col_idx, cell in enumerate(row):
+                        if cell == "X": # Se la stanza è inaccessibile
+                            h_values[row_idx][col_idx] = math.inf
 
-                    else:
-                        distance = calculate_distance((row_idx, col_idx), nearest_dirty_room)
-                        h_values[row_idx][col_idx] = distance
+                        else: # Calcola le distanze a partire da ogni stanza rispetto alla stanza sporca più vicina e appendila alla matrice dell'euristica
+                            distance = calculate_distance((row_idx, col_idx), nearest_dirty_room)
+                            h_values[row_idx][col_idx] = distance
+
+            
+            if dirty_vacuumed: # Se tutte le stanze sono pulite, calcola l'euristica rispetto alla posizione finale
+                for row_idx, row in enumerate(rooms):
+                    for col_idx, cell in enumerate(row):
+                        if cell == "X": # Se la stanza è inaccessibile
+                            h_values[row_idx][col_idx] = math.inf
+
+                        else # Calcola le distanze a partire da ogni stanza rispetto alla stanza finale e appendila alla matrice dell'euristica
+                            h_values[row_idx][col_idx] = calculate_distance((row_idx, col_idx), final_position)
 
             return h_values
 
