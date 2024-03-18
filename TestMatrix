@@ -138,6 +138,8 @@ def run_program(image_name, search_algorithm):
     print("")
     print("")
     SF = check_SF(rooms)
+    if(check_SF(rooms) == False):
+        return None, None, None, None, None
 
     class SmartVacuum(Problem):
         def __init__(self, initial):
@@ -870,6 +872,10 @@ def run_program(image_name, search_algorithm):
         if (search_algorithm == "DfsAlt"):
             final_nodes = []
             nodo_best = None
+            dirty_count = None
+            Vdirty_count = None
+            deterministic = True
+            GreedyAlt = False
 
             nodo_deterministico, dirty_count, Vdirty_count = DfsAlt(problema, True)
 
@@ -923,9 +929,19 @@ def run_program(image_name, search_algorithm):
                 print(
                     "!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
                 print("Algoritmo usato: DfsAlt Deterministica e DfsAlt Randomica")
+                deterministic = True
+                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt
 
         if (search_algorithm == "GreedyAlt"):
+            nodo_best = None
+            dirty_count = None
+            Vdirty_count = None
+            deterministic = True
+
+
             result, dirty_count, Vdirty_count = GreedyAlt(problema)
+
+            GreedyAlt = True
 
             if result != None:
                 deterministic = True
@@ -940,6 +956,8 @@ def run_program(image_name, search_algorithm):
                 print(
                     "!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
                 print("Algoritmo usato: GreedyAlt")
+                deterministic = True
+                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt
 
 
 ## INTERFACCIA GRAFICA
@@ -955,7 +973,7 @@ import sv_ttk
 class ImageProcessingApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Image Processing App")
+        self.root.title("Vacuum Cleaner EdoLuc")
         self.root.geometry("1920x1080")
 
         self.image_path = ""
@@ -1063,7 +1081,24 @@ class ImageProcessingApp:
 
         nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt = run_program(self.image_path, 'DfsAlt')
 
+
+
         var_da_stampare = []
+
+        if (nodo_stampare == None and var_deterministic == None):
+            self.output_text.config(state=tk.NORMAL)
+            self.output_text.delete("1.0", tk.END)
+            self.output_text.insert(tk.END, "Impossibile trovare soluzione, matrice invalida!")
+            self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
+            return None
+
+        if(nodo_stampare == None and var_deterministic != None):
+            self.output_text.config(state=tk.NORMAL)
+            self.output_text.delete("1.0", tk.END)
+            self.output_text.insert(tk.END, "Impossibile raggiungere la stanza finale(F) e/o pulire tutte le stanze(D,V)!")
+            self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
+            return None
+
 
         for node in nodo_stampare.path():
             matrice_iniziale = "\n".join(" ".join(str(cell) for cell in row) for row in node.rooms)
@@ -1134,13 +1169,28 @@ class ImageProcessingApp:
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
 
         nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt = run_program(self.image_path,
-                                                                                             'GreedyAlt')
+                                                                                                 'GreedyAlt')
+        if (nodo_stampare == None and var_deterministic == None):
+            self.output_text.config(state=tk.NORMAL)
+            self.output_text.delete("1.0", tk.END)
+            self.output_text.insert(tk.END, "Impossibile trovare soluzione, matrice invalida!")
+            self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
+            return None
+
+        if (nodo_stampare == None and var_deterministic != None):
+            self.output_text.config(state=tk.NORMAL)
+            self.output_text.delete("1.0", tk.END)
+            self.output_text.insert(tk.END,
+                                    "Impossibile raggiungere la stanza finale(F) e/o pulire tutte le stanze(D,V)!")
+            self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
+            return None
 
         for node in nodo_stampare.path():
             matrice_iniziale = "\n".join(" ".join(str(cell) for cell in row) for row in node.rooms)
             break
 
         var_da_stampare = []
+
         var_da_stampare.append("Matrice letta: ")
         var_da_stampare.append("\n" + str(matrice_iniziale) + "")
 
