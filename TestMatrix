@@ -291,6 +291,7 @@ def run_program(image_name, search_algorithm):
 
             if action == "clean":
                 update_letter_position(node, room[0], room[1], "C")
+                node.robot_node = "C"
                 print("")
                 print("Pulisco la stanza", room, "con costo 1 (D->C):")
                 stampa_matrice(node.rooms)
@@ -300,6 +301,7 @@ def run_program(image_name, search_algorithm):
 
             if action == "Vclean":
                 update_letter_position(node, room[0], room[1], "C")
+                node.robot_node = "C"
                 print("")
                 print("Pulisco la stanza", room, "con costo 3 (V->C):")
                 stampa_matrice(node.rooms)
@@ -489,8 +491,7 @@ def run_program(image_name, search_algorithm):
             return h_values
 
     class Node:
-        def __init__(self, robot_node, room, rooms, parent=None, action=None, path_cost=0, frontier=deque(),
-                     explored=set()):
+        def __init__(self, robot_node, room, rooms, parent=None, action=None, path_cost=0, frontier=deque(), frontierpre = deque(),explored=set()):
             self.robot_node = robot_node
             self.room = room
             self.rooms = rooms
@@ -499,9 +500,10 @@ def run_program(image_name, search_algorithm):
             self.path_cost = path_cost
             self.frontier = frontier or deque()
             self.explored = explored
+            self.frontierpre = frontierpre or deque()
 
         def __repr__(self):
-            return f"<Node ('{self.robot_node}', {self.room}, {self.rooms})>"
+            return f"<Node ('{self.robot_node}', {self.room})>"
 
         def expand(self, problem, node, deterministic, GreedyAlt):
             return [(self.child_node(problem, node, action))
@@ -515,11 +517,12 @@ def run_program(image_name, search_algorithm):
                 return None, None
 
             next_rooms = [row[:] for row in self.rooms]  # Crea una copia della matrice per il child node
+            next_frontierpre = node.frontierpre.copy()
             next_frontier = node.frontier.copy()  # Copia la frontiera locale
             next_explored = node.explored.copy()  # Copia gli stati esplorati locali
 
             next_node = Node(next_state[0], next_state[1], next_rooms, self, action,
-                             problem.path_cost(self.path_cost, self, action, next_state), next_frontier, next_explored)
+                             problem.path_cost(self.path_cost, self, action, next_state), next_frontier, next_frontierpre, next_explored)
 
             return next_node, next_state
 
@@ -534,7 +537,7 @@ def run_program(image_name, search_algorithm):
 
     class NodeGreedy:
         def __init__(self, robot_node, room, rooms, f, g, parent=None, action=None, path_cost=0,
-                     frontier=PriorityQueue(), explored=set()):
+                     frontier=None, frontierpre=None, explored=None):
             self.robot_node = robot_node
             self.room = room
             self.rooms = rooms
@@ -543,14 +546,15 @@ def run_program(image_name, search_algorithm):
             self.parent = parent
             self.action = action
             self.path_cost = path_cost
-            self.frontier = frontier or PriorityQueue()
-            self.explored = explored or set()
+            self.frontier = frontier if frontier is not None else PriorityQueue()
+            self.explored = explored if explored is not None else set()
+            self.frontierpre = frontierpre if frontierpre is not None else PriorityQueue()
 
         def __lt__(self, other):
             return self.f < other.f
 
         def __repr__(self):
-            return f"<Node ('{self.robot_node}', {self.room}, {self.rooms})>"
+            return f"<Node ('{self.robot_node}', {self.room})>"
 
         def expand(self, problem, node, deterministic, GreedyAlt):
             return [(self.child_node(problem, action, node))
@@ -565,7 +569,9 @@ def run_program(image_name, search_algorithm):
 
             next_room = next_state[1]
             next_rooms = [row[:] for row in self.rooms]  # Crea una copia della matrice per il child node
-            next_frontier = copy.deepcopy(node.frontier)  # Copia la frontiera locale
+            next_frontier = copy_priority_queue(node.frontier)  # Copia la frontiera locale
+            next_frontierpre = copy_priority_queue(node.frontierpre)
+
             next_explored = node.explored.copy()  # Copia gli stati esplorati locali
             next_g = problem.h_update(next_room, node)
             next_f = problem.h_extract(next_room, next_g)
@@ -574,7 +580,7 @@ def run_program(image_name, search_algorithm):
             print(next_explored)
 
             next_node = NodeGreedy(next_state[0], next_state[1], next_rooms, next_f, next_g, self, action,
-                                   problem.path_cost(self.path_cost, self, action, next_state), next_frontier,
+                                   problem.path_cost(self.path_cost, self, action, next_state), next_frontier, next_frontierpre,
                                    next_explored)
 
             return next_node, next_state
@@ -623,6 +629,7 @@ def run_program(image_name, search_algorithm):
 
             print("Iterazione (while): ", count)
             print("Frontiera pre pop: ", node.frontier)
+            node.frontierpre = node.frontier.copy()
 
             node = node.frontier.popleft()
 
@@ -657,15 +664,26 @@ def run_program(image_name, search_algorithm):
         f = problem.h_extract(room, g)
 
         node = NodeGreedy(state, room, rooms, f, g)
+        for priority, item in node.frontier.heap:
+            print("PRE", item)
         node.frontier.append(node)
+        for priority, item in node.frontier.heap:
+            print("post", item)
 
         dirty_count, Vdirty_count = count_dirty_rooms(rooms)
 
         while node.frontier and count < max_count:
             count += 1
             deterministic = True
+            node.frontierpre = copy_priority_queue(node.frontier)
+
+            for priority, item in node.frontier.heap:
+                print("PRE",item)
 
             node = node.frontier.pop()
+
+            for priority, item in node.frontier.heap:
+                print("POST", item)
 
             print("Nodo Corrente: ", node)
             print(count)
@@ -679,8 +697,9 @@ def run_program(image_name, search_algorithm):
             for child, stato in node.expand(problem, node, deterministic=True, GreedyAlt=True):
                 if child != None and child.room not in node.explored and not node.frontier.__contains__(
                         (child.robot_node, child.room)):
+                    print("ENTRATO")
+                    print("")
                     node.frontier.append(child)
-                    print(child.f)
 
         return None, dirty_count, Vdirty_count
 
@@ -710,6 +729,12 @@ def run_program(image_name, search_algorithm):
 
     def update_letter_position(node, row, col, new_letter):
         node.rooms[row][col] = new_letter
+
+    def copy_priority_queue(priority_queue):
+        copied_queue = PriorityQueue(f=priority_queue.f)
+        for _, item in priority_queue.heap:
+            copied_queue.append(item)
+        return copied_queue
 
     def count_dirty_rooms(rooms):
         dirty_count = 0
@@ -808,14 +833,9 @@ def run_program(image_name, search_algorithm):
         right_blocked = robot_col >= len(rooms) - 1 or find_letter_position(node, node.room[0],
                                                                             node.room[1] + 1) == "X" or (
                             node.room[0], node.room[1] + 1) in explored or "move_right" not in azioni
-        print("ENTRA?")
-        print("UP", up_blocked)
-        print("DOWN", down_blocked)
-        print("LEFT", left_blocked)
-        print("RIGHT", right_blocked)
+
 
         if (up_blocked == True and down_blocked == True and left_blocked == True and right_blocked == True):
-            print("BLOCCATO DIOCANE")
             if (up_blocked == True and robot_row != 0 and find_letter_position(node, node.room[0] - 1,
                                                                                node.room[1]) != "X"):
                 if ((node.room[0] - 1, node.room[1]) in node.explored):
@@ -1059,7 +1079,8 @@ class ImageProcessingApp:
         var_da_stampare.append("\n" + str(matrice_iniziale) + "")
 
         var_da_stampare.append("\n\nOutput Algoritmo: ")
-        var_da_stampare.append("\nMatrice finale: \n" + matrice_iniziale)
+        matrice_finale = "\n".join(" ".join(str(cell) for cell in row) for row in nodo_stampare.rooms)
+        var_da_stampare.append("\nMatrice finale: \n" + str(matrice_finale))
         var_da_stampare.append("\nNodo Finale: " + str(nodo_stampare.robot_node) + str(nodo_stampare.room))
         var_da_stampare.append("Costo Distanza: " + str(nodo_stampare.path_cost))
         var_da_stampare.append("Costo Pulizia Dirty(1): " + str(var_dirty))
@@ -1088,7 +1109,7 @@ class ImageProcessingApp:
             var_da_stampare.append("Azione verso Nodo Corrente: " + str(node.action))
             var_da_stampare.append("Nodo Parent: " + str(node.parent))
 
-            var_da_stampare.append("\nFrontiera Corrente: " + str(node.frontier))  # Aggiungere la rappresentazione della frontiera alla lista di output
+            var_da_stampare.append("\nFrontiera Corrente: " + str(node.frontierpre))  # Aggiungere la rappresentazione della frontiera alla lista di output
             var_da_stampare.append("\nEsplorati Corrente: " + str(node.explored) + "\n")
 
         var_da_stampare.append("")
@@ -1118,7 +1139,8 @@ class ImageProcessingApp:
         var_da_stampare.append("\n" + str(matrice_iniziale) + "")
 
         var_da_stampare.append("\n\nOutput Algoritmo: ")
-        var_da_stampare.append("\nMatrice finale: \n" + matrice_iniziale)
+        matrice_finale = "\n".join(" ".join(str(cell) for cell in row) for row in nodo_stampare.rooms)
+        var_da_stampare.append("\nMatrice finale: \n" + str(matrice_finale))
         var_da_stampare.append("\nNodo Finale: " + str(nodo_stampare.robot_node) + str(nodo_stampare.room))
         var_da_stampare.append("Costo Distanza: " + str(nodo_stampare.path_cost))
         var_da_stampare.append("Costo Pulizia Dirty(1): " + str(var_dirty))
@@ -1150,9 +1172,8 @@ class ImageProcessingApp:
             var_da_stampare.append("Nodo Corrente: "+ str(node.robot_node) + str( node.room))
             var_da_stampare.append("Azione verso Nodo Corrente: " + str(node.action))
             var_da_stampare.append("Nodo Parent: " + str(node.parent))
-            frontier_contents = [item for item in node.frontier.heap]
-            frontier_string = "[" + ", ".join(
-                str(item) for item in frontier_contents) + "]"  # Convertire la lista in una stringa
+            frontier_contents = [item for priority, item in node.frontierpre.heap]
+            frontier_string = "[" + ", ".join(str(item) for item in frontier_contents) + "]"
             var_da_stampare.append("\nFrontiera Corrente: " + frontier_string)  # Aggiungere la rappresentazione della frontiera alla lista di output
             var_da_stampare.append("\nEsplorati Corrente: " + str(node.explored) + "\n")
 
