@@ -40,7 +40,7 @@ def show_image(image):
 def load_and_display_image(image_name):
     image = cv2.imread(image_name)
     image_without_grid = remove_grid(image)
-    show_image(image_without_grid)
+
     return image_without_grid
 
 
@@ -323,10 +323,6 @@ def run_program(image_name, search_algorithm):
                 lettera = find_letter_position(node, room[0], room[1] + 1)
                 robot_node = (lettera, (room[0], room[1] + 1))
 
-
-
-
-
             return robot_node
 
         def goal_test(self, state, node):
@@ -337,7 +333,7 @@ def run_program(image_name, search_algorithm):
                     find_letter_position(node, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in
                     range(len(rooms[row])))
                 if dirty_vacuumed:
-                    
+
                     return True
                 else:
                     print("Per entrare nella destinazione finale(D) vanno pulite tutte le stanze(D,V).")
@@ -466,27 +462,29 @@ def run_program(image_name, search_algorithm):
                                     nearest_dirty_room = room
 
                         # Calcola l'euristica per ogni stanza rispetto ad una stanza sporca adiacente alla sorgente
-            dirty_vacuumed = all(find_letter_position_Nonode(rooms, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in range(len(rooms[row])))
+            dirty_vacuumed = all(
+                find_letter_position_Nonode(rooms, row, col) not in ["D", "V"] for row in range(len(rooms)) for col in
+                range(len(rooms[row])))
 
             if not dirty_vacuumed:
-                            for row_idx, row in enumerate(rooms):
-                                for col_idx, cell in enumerate(row):
-                                    if cell == "X":
-                                        h_values[row_idx][col_idx] = math.inf
+                for row_idx, row in enumerate(rooms):
+                    for col_idx, cell in enumerate(row):
+                        if cell == "X":
+                            h_values[row_idx][col_idx] = math.inf
 
-                                    else:
-                                        distance = calculate_distance((row_idx, col_idx), nearest_dirty_room)
-                                        h_values[row_idx][col_idx] = distance
+                        else:
+                            distance = calculate_distance((row_idx, col_idx), nearest_dirty_room)
+                            h_values[row_idx][col_idx] = distance
 
-                        # Se tutte le stanze sono pulite, calcola l'euristica rispetto alla posizione finale
+            # Se tutte le stanze sono pulite, calcola l'euristica rispetto alla posizione finale
             if dirty_vacuumed:
-                            for row_idx, row in enumerate(rooms):
-                                for col_idx, cell in enumerate(row):
-                                    if cell == "X":
-                                        h_values[row_idx][col_idx] = math.inf
+                for row_idx, row in enumerate(rooms):
+                    for col_idx, cell in enumerate(row):
+                        if cell == "X":
+                            h_values[row_idx][col_idx] = math.inf
 
-                                    else:
-                                        h_values[row_idx][col_idx] = calculate_distance((row_idx, col_idx), final_position)
+                        else:
+                            h_values[row_idx][col_idx] = calculate_distance((row_idx, col_idx), final_position)
 
             return h_values
 
@@ -645,7 +643,7 @@ def run_program(image_name, search_algorithm):
             for child, stato in node.expand(problem, node, deterministic, GreedyAlt=False):
                 if child != None and child.room not in node.explored and (child.robot_node, child.room) not in [
                     (node.robot_node, node.room) for node in node.frontier]:
-                        node.frontier.append(child)
+                    node.frontier.append(child)
 
         return None, dirty_count, Vdirty_count
 
@@ -799,20 +797,20 @@ def run_program(image_name, search_algorithm):
 
         # Verifica se il robot è bloccato in tutte e quattro le direzioni
         up_blocked = robot_row == 0 or find_letter_position(node, node.room[0] - 1, node.room[1]) == "X" or (
-        node.room[0] - 1, node.room[1]) in explored or "move_up" not in azioni
+            node.room[0] - 1, node.room[1]) in explored or "move_up" not in azioni
 
         down_blocked = robot_row >= len(rooms) - 1 or find_letter_position(node, node.room[0] + 1,
                                                                            node.room[1]) == "X" or (
-                       node.room[0] + 1, node.room[1]) in explored or "move_down" not in azioni
+                           node.room[0] + 1, node.room[1]) in explored or "move_down" not in azioni
 
         left_blocked = robot_col == 0 or find_letter_position(node, node.room[0], node.room[1] - 1) == "X" or (
-        node.room[0], node.room[1] - 1) in explored or "move_left" not in azioni
+            node.room[0], node.room[1] - 1) in explored or "move_left" not in azioni
 
         right_blocked = robot_col >= len(rooms) - 1 or find_letter_position(node, node.room[0],
                                                                             node.room[1] + 1) == "X" or (
-                        node.room[0], node.room[1] + 1) in explored or "move_right" not in azioni
+                            node.room[0], node.room[1] + 1) in explored or "move_right" not in azioni
         print("ENTRA?")
-        print("UP",up_blocked)
+        print("UP", up_blocked)
         print("DOWN", down_blocked)
         print("LEFT", left_blocked)
         print("RIGHT", right_blocked)
@@ -821,31 +819,31 @@ def run_program(image_name, search_algorithm):
             print("BLOCCATO DIOCANE")
             if (up_blocked == True and robot_row != 0 and find_letter_position(node, node.room[0] - 1,
                                                                                node.room[1]) != "X"):
-                if((node.room[0] - 1, node.room[1]) in node.explored):
-                        node.explored.remove((node.room[0] - 1, node.room[1]))
-                        print("Ho rimosso", (node.room[0] - 1, node.room[1]),
-                            "dagli esplorati per permettere al robot di spostarsi")
+                if ((node.room[0] - 1, node.room[1]) in node.explored):
+                    node.explored.remove((node.room[0] - 1, node.room[1]))
+                    print("Ho rimosso", (node.room[0] - 1, node.room[1]),
+                          "dagli esplorati per permettere al robot di spostarsi")
 
             if (down_blocked == True and robot_row < len(rooms) - 1 and find_letter_position(node, node.room[0] + 1,
                                                                                              node.room[1]) != "X"):
                 if ((node.room[0] + 1, node.room[1]) in node.explored):
-                        node.explored.remove((node.room[0] + 1, node.room[1]))
-                        print("Ho rimosso", (node.room[0] + 1, node.room[1]),
-                      "dagli esplorati per permettere al robot di spostarsi")
+                    node.explored.remove((node.room[0] + 1, node.room[1]))
+                    print("Ho rimosso", (node.room[0] + 1, node.room[1]),
+                          "dagli esplorati per permettere al robot di spostarsi")
 
             if (left_blocked == True and robot_col != 0 and find_letter_position(node, node.room[0],
                                                                                  node.room[1] - 1) != "X"):
                 if ((node.room[0], node.room[1] - 1) in node.explored):
-                        node.explored.remove((node.room[0], node.room[1] - 1))
-                        print("Ho rimosso", (node.room[0], node.room[1] - 1),
-                      "dagli esplorati per permettere al robot di spostarsi")
+                    node.explored.remove((node.room[0], node.room[1] - 1))
+                    print("Ho rimosso", (node.room[0], node.room[1] - 1),
+                          "dagli esplorati per permettere al robot di spostarsi")
 
             if (right_blocked == True and robot_col < len(rooms) - 1 and find_letter_position(node, node.room[0],
                                                                                               node.room[1] + 1) != "X"):
                 if ((node.room[0], node.room[1] + 1) in node.explored):
-                        node.explored.remove((node.room[0], node.room[1] + 1))
-                        print("Ho rimosso", (node.room[0], node.room[1] + 1),
-                      "dagli esplorati per permettere al robot di spostarsi")
+                    node.explored.remove((node.room[0], node.room[1] + 1))
+                    print("Ho rimosso", (node.room[0], node.room[1] + 1),
+                          "dagli esplorati per permettere al robot di spostarsi")
 
     if (SF == True):
         problema = SmartVacuum(Problem)
@@ -900,7 +898,6 @@ def run_program(image_name, search_algorithm):
 
             else:
 
-
                 print("--")
                 print("--")
                 print("Output Algoritmo: ")
@@ -932,7 +929,8 @@ import tkinter as tk
 from tkinter import filedialog
 from PIL import Image, ImageTk
 import numpy as np
-from ttkthemes import ThemedStyle
+from tkinter import ttk
+import sv_ttk
 
 
 class ImageProcessingApp:
@@ -949,8 +947,9 @@ class ImageProcessingApp:
         self.output_label.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
         # TEXT AREA
-        # self.output_text = tk.Text(self.root, wrap=tk.WORD, height=10, width=50)  # Definisci altezza e larghezza desiderate
-        # self.output_text.grid(row=1, column=1, columnspan=2, padx=10, pady=10, sticky="nsew")
+        self.output_text = tk.Text(self.root, wrap=tk.WORD, height=10,
+                                   width=50)  # Definisci altezza e larghezza desiderate
+        self.output_text.grid(row=1, column=1, columnspan=2, padx=10, pady=10, sticky="nsew")
 
         button_frame = tk.Frame(self.root)
         button_frame.grid(row=0, column=0, columnspan=2, pady=10)
@@ -958,11 +957,11 @@ class ImageProcessingApp:
         self.load_button = tk.Button(button_frame, text="Carica Immagine", command=self.load_image, width=15, height=2)
         self.load_button.grid(row=0, column=0, padx=5)
 
-        self.bfs_button = tk.Button(button_frame, text="BFS", command=self.run_bfs, width=15, height=2)
-        self.bfs_button.grid(row=0, column=1, padx=5)
+        self.DfsAlt_button = tk.Button(button_frame, text="DfsAlt", command=self.run_DfsAlt, width=15, height=2)
+        self.DfsAlt_button.grid(row=0, column=1, padx=5)
 
-        self.astar_button = tk.Button(button_frame, text="A*", command=self.run_astar, width=15, height=2)
-        self.astar_button.grid(row=0, column=2, padx=5)
+        self.GreedyAlt_button = tk.Button(button_frame, text="GreedyAlt", command=self.run_GreedyAlt, width=15, height=2)
+        self.GreedyAlt_button.grid(row=0, column=2, padx=5)
 
         self.close_button = tk.Button(button_frame, text="Chiudi", command=self.close_app, width=15, height=2)
         self.close_button.grid(row=0, column=3, padx=5)
@@ -1040,44 +1039,118 @@ class ImageProcessingApp:
         matrix = np.random.randint(0, 2, size=(height, width))  # Random binary matrix for demonstration
         return matrix
 
-    def run_bfs(self):
+    def run_DfsAlt(self):
+        # COMANDO PER PULIRE LA TEXT AREA
+        self.output_text.delete("1.0", tk.END)
         if not hasattr(self, 'image_matrix'):
             self.update_output("Errore: Nessuna immagine caricata.")
             return
-        self.update_output("Esecuzione BFS sulla matrice dell'immagine...")
+        self.output_text.insert(tk.END, "Esecuzione DfsAlt sulla matrice dell'immagine...")
 
         nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt = run_program(self.image_path, 'DfsAlt')
 
         var_da_stampare = []
+
+        for node in nodo_stampare.path():
+            matrice_iniziale = "\n".join(" ".join(str(cell) for cell in row) for row in node.rooms)
+            break
+
+
+        var_da_stampare.append("Matrice letta: ")
+        var_da_stampare.append("\n" + str(matrice_iniziale) + "")
+
+        var_da_stampare.append("\n\nOutput Algoritmo: ")
+        var_da_stampare.append("\nMatrice finale: \n" + matrice_iniziale)
+        var_da_stampare.append("\nNodo Finale: " + str(nodo_stampare.robot_node) + str(nodo_stampare.room))
+        var_da_stampare.append("Costo Distanza: " + str(nodo_stampare.path_cost))
+        var_da_stampare.append("Costo Pulizia Dirty(1): " + str(var_dirty))
+        var_da_stampare.append("Costo Pulizia Vdirty(3): " + str(var_Vdirty))
+        var_da_stampare.append("Costo Totale: " + str(nodo_stampare.path_cost + var_dirty + var_Vdirty))
+        if (var_deterministic):
+            var_da_stampare.append("Algoritmo utilizzato: DfsAlt Deterministica")
+        else:
+            var_da_stampare.append("Algoritmo utilizzato: DfsAlt Randomica")
+
+        var_da_stampare.append("\n\nEsecuzione Algoritmo DfsAlt: ")
+
         for i, node in enumerate(nodo_stampare.path()):
             # Aggiungi un'intestazione sopra ogni matrice
-            var_da_stampare.append(f"Passo {i + 1}:")
-            var_da_stampare.append("\n".join(" ".join(str(cell) for cell in row) for row in node.rooms))
+            var_da_stampare.append(f"\nPasso {i + 1}:")
+            # Formatta la matrice dello stato corrente
+            state_matrix = "\n".join(" ".join(str(cell) for cell in row) for row in node.rooms)
+            var_da_stampare.append(state_matrix)
             var_da_stampare.append("")  # Aggiungi una riga vuota tra le righe della matrice
+            var_da_stampare.append("Nodo Corrente: " + str(node.robot_node) + str(node.room))
+            var_da_stampare.append("Azione verso Nodo Corrente: " + str(node.action))
 
+            var_da_stampare.append("\nFrontiera Corrente: " + str(node.frontier))  # Aggiungere la rappresentazione della frontiera alla lista di output
+            var_da_stampare.append("\nEsplorati Corrente: " + str(node.explored) + "\n")
+
+        var_da_stampare.append("")
+
+        self.output_text.delete("1.0", tk.END)
         testo_formattato = "\n".join(var_da_stampare)
 
-        self.update_output(testo_formattato)
+        self.output_text.insert(tk.END, testo_formattato)
         return
 
-    def run_astar(self):
+    def run_GreedyAlt(self):
+        # COMANDO PER PULIRE LA TEXT AREA
+        self.output_text.delete("1.0", tk.END)
         if not hasattr(self, 'image_matrix'):
             self.update_output("Errore: Nessuna immagine caricata.")
             return
-        self.update_output("Esecuzione ASTAR sulla matrice dell'immagine...")
+        self.output_text.insert(tk.END, "Esecuzione GreedyAlt sulla matrice dell'immagine...")
         nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt = run_program(self.image_path,
                                                                                              'GreedyAlt')
 
-        var_da_stampare = []
-        for i, node in enumerate(nodo_stampare.path()):
-            # Aggiungi un'intestazione sopra ogni matrice
-            var_da_stampare.append(f"Passo {i + 1}:")
-            var_da_stampare.append("\n".join(" ".join(str(cell) for cell in row) for row in node.rooms))
-            var_da_stampare.append("")  # Aggiungi una riga vuota tra le righe della matrice
+        for node in nodo_stampare.path():
+            matrice_iniziale = "\n".join(" ".join(str(cell) for cell in row) for row in node.rooms)
+            break
 
+        var_da_stampare = []
+        var_da_stampare.append("Matrice letta: ")
+        var_da_stampare.append("\n" + str(matrice_iniziale) + "")
+
+        var_da_stampare.append("\n\nOutput Algoritmo: ")
+        var_da_stampare.append("\nMatrice finale: \n" + matrice_iniziale)
+        var_da_stampare.append("\nNodo Finale: " + str(nodo_stampare.robot_node) + str(nodo_stampare.room))
+        var_da_stampare.append("Costo Distanza: " + str(nodo_stampare.path_cost))
+        var_da_stampare.append("Costo Pulizia Dirty(1): " + str(var_dirty))
+        var_da_stampare.append("Costo Pulizia Vdirty(3): " + str(var_Vdirty))
+        var_da_stampare.append("Costo Totale: " + str(nodo_stampare.path_cost + var_dirty + var_Vdirty))
+        var_da_stampare.append("")
+
+        var_da_stampare.append("\nEsecuzione Algoritmo GreedyAlt: ")
+        for i, node in enumerate(nodo_stampare.path()):
+            # Formatta la matrice dello stato corrente
+            state_matrix = "\n".join(" ".join(str(cell) for cell in row) for row in node.rooms)
+
+            heuristic_formatted = "\n".join(
+                " ".join("∞" if cell == math.inf else str(cell) for cell in row) for row in node.g)
+
+            # Unisci la matrice dello stato corrente e quella dell'euristica
+            combined_matrices = []
+            for state_row, heuristic_row in zip(state_matrix.split('\n'), heuristic_formatted.split('\n')):
+                combined_matrices.append(state_row + "     " + heuristic_row)
+
+            # Aggiungi un'intestazione sopra ogni matrice
+            var_da_stampare.append(f"\nPasso {i + 1}:")
+
+            var_da_stampare.append("\n".join(combined_matrices))
+            var_da_stampare.append("")  # Aggiungi una riga vuota tra le righe della matrice
+            var_da_stampare.append("Nodo Corrente: "+ str(node.robot_node) + str( node.room))
+            var_da_stampare.append("Azione verso Nodo Corrente: " + str(node.action))
+            frontier_contents = [item for item in node.frontier.heap]
+            frontier_string = "[" + ", ".join(
+                str(item) for item in frontier_contents) + "]"  # Convertire la lista in una stringa
+            var_da_stampare.append("\nFrontiera Corrente: " + frontier_string)  # Aggiungere la rappresentazione della frontiera alla lista di output
+            var_da_stampare.append("\nEsplorati Corrente: " + str(node.explored) + "\n")
+
+        self.output_text.delete("1.0", tk.END)
         testo_formattato = "\n".join(var_da_stampare)
 
-        self.update_output(testo_formattato)
+        self.output_text.insert(tk.END, testo_formattato)
         return
 
     def close_app(self):
@@ -1093,4 +1166,7 @@ def main():
 if __name__ == "__main__":
     main()
 
-# AGGIORNAMENTO ALLE 1:30 NOTTE
+
+
+
+
