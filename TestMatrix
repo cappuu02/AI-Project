@@ -988,61 +988,48 @@ class ImageProcessingApp:
         self.root.grid_rowconfigure(1, weight=1)
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_columnconfigure(1, weight=1)
+        # Impostazione del widget di output come disabilitato
+        self.output_text.config(state=tk.DISABLED)
 
-    def stampa_output(self, final_node, dirty_count, Vdirty_count, deterministic, GreedyAlt):
-        count = 0
-
-        print('--')
-        print("--")
-        print("Output Algoritmo: ")
-        print("Nodo Finale: ", final_node)
-        print("Percorso dei nodi: ")
-
-        for node in final_node.path():
-            print(node.room, " Azione per arrivare al nodo: ", node.action)
-        print("--")
-
-        for node in final_node.path():
-            count += 1
-            print("")
-            print("Passo: ", count)
-            stampa_matrice(node.rooms)
-            print("--")
-
-        if GreedyAlt == True:
-            for node in node.path():
-                print("")
-                print("Passo: ", count)
-                stampa_matrice(node.g)
-                print("--")
-            print("--")
-
-        print("Costo Path distanza: ", final_node.path_cost)
-        print("Costo Pulizia(dirty): ", dirty_count)
-        print("Costo Pulizia(Vdirty): ", Vdirty_count)
-
-        if GreedyAlt == True:
-            print("Costo Euristica: ", final_node.f)
-        print("Costo totale: ", final_node.path_cost + dirty_count + Vdirty_count)
-
-        if GreedyAlt == False:
-            if (deterministic == True):
-                print("Algoritmo usato: DfsAlt Deterministica")
-            else:
-                print("Algoritmo usato: DfsAlt Randomica")
-        else:
-            print("Algoritmo usato: GreedyAlt")
 
     def redirect_output(self, text):
+        # Aggiornamento dell'output
+        self.output_text.config(state=tk.NORMAL)  # Abilita il widget di output
         self.output_text.insert(tk.END, text)
+        self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
 
     def load_image(self):
         self.image_path = filedialog.askopenfilename()
         if self.image_path:
+            # Apri l'immagine
             image = Image.open(self.image_path)
+
+            # Ottieni le dimensioni massime consentite per l'immagine
+            max_width = self.root.winfo_width() - 500  # Larghezza massima consentita
+            max_height = self.root.winfo_height() - 500  # Altezza massima consentita
+
+            # Verifica se le dimensioni dell'immagine superano i limiti consentiti
+            if image.width > max_width or image.height > max_height:
+                # Calcola i rapporti di ridimensionamento per mantenere l'aspect ratio
+                width_ratio = max_width / image.width
+                height_ratio = max_height / image.height
+
+                # Se l'immagine è più ampia del consentito, ridimensiona rispettando l'aspect ratio
+                if width_ratio < height_ratio:
+                    new_width = max_width
+                    new_height = int(image.height * (max_width / image.width))
+                # Altrimenti, se l'immagine è più alta del consentito, ridimensiona rispettando l'aspect ratio
+                else:
+                    new_height = max_height
+                    new_width = int(image.width * (max_height / image.height))
+
+                # Ridimensiona l'immagine
+                image = image.resize((new_width, new_height))
+
+            # Carica l'immagine nell'interfaccia utente
             photo = ImageTk.PhotoImage(image)
             self.image_label.config(image=photo)
-            self.image_label.image = photo
+            self.image_label.image = photo  # Aggiornamento della variabile di classe photo per evitare la perdita
 
             # Process image
             self.image_matrix = self.process_image(image)
@@ -1060,11 +1047,19 @@ class ImageProcessingApp:
 
     def run_DfsAlt(self):
         # COMANDO PER PULIRE LA TEXT AREA
+        self.output_text.config(state=tk.NORMAL)
         self.output_text.delete("1.0", tk.END)
+        self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
         if not hasattr(self, 'image_matrix'):
-            self.update_output("Errore: Nessuna immagine caricata.")
+
+            self.output_text.config(state=tk.NORMAL)
+            self.output_text.delete("1.0", tk.END)
+            self.output_text.insert(tk.END, "Errore: Nessuna immagine caricata.")
+            self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
             return
+        self.output_text.config(state=tk.NORMAL)
         self.output_text.insert(tk.END, "Esecuzione DfsAlt sulla matrice dell'immagine...")
+        self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
 
         nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt = run_program(self.image_path, 'DfsAlt')
 
@@ -1114,19 +1109,30 @@ class ImageProcessingApp:
 
         var_da_stampare.append("")
 
-        self.output_text.delete("1.0", tk.END)
+
         testo_formattato = "\n".join(var_da_stampare)
 
+        self.output_text.config(state=tk.NORMAL)  # Abilita il widget di output
+        self.output_text.delete("1.0", tk.END)
         self.output_text.insert(tk.END, testo_formattato)
+        self.output_text.config(state=tk.DISABLED)  # Abilita il widget di output
         return
 
     def run_GreedyAlt(self):
         # COMANDO PER PULIRE LA TEXT AREA
+        self.output_text.config(state=tk.NORMAL)
         self.output_text.delete("1.0", tk.END)
+        self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
         if not hasattr(self, 'image_matrix'):
-            self.update_output("Errore: Nessuna immagine caricata.")
+            self.output_text.config(state=tk.NORMAL)
+            self.output_text.delete("1.0", tk.END)
+            self.output_text.insert(tk.END, "Errore: Nessuna immagine caricata.")
+            self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
             return
-        self.output_text.insert(tk.END, "Esecuzione GreedyAlt sulla matrice dell'immagine...")
+        self.output_text.config(state=tk.NORMAL)
+        self.output_text.insert(tk.END, "Esecuzione DfsAlt sulla matrice dell'immagine...")
+        self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
+
         nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt = run_program(self.image_path,
                                                                                              'GreedyAlt')
 
@@ -1177,10 +1183,13 @@ class ImageProcessingApp:
             var_da_stampare.append("\nFrontiera Corrente: " + frontier_string)  # Aggiungere la rappresentazione della frontiera alla lista di output
             var_da_stampare.append("\nEsplorati Corrente: " + str(node.explored) + "\n")
 
-        self.output_text.delete("1.0", tk.END)
+
         testo_formattato = "\n".join(var_da_stampare)
 
+        self.output_text.config(state=tk.NORMAL)  # Abilita il widget di output
+        self.output_text.delete("1.0", tk.END)
         self.output_text.insert(tk.END, testo_formattato)
+        self.output_text.config(state=tk.DISABLED)  # Abilita il widget di output
         return
 
     def close_app(self):
