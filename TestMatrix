@@ -641,8 +641,7 @@ def run_program(image_name, search_algorithm):
             print("")
 
             for child, stato in node.expand(problem, node, deterministic, GreedyAlt=False):
-                if child != None and child.room not in node.explored and (child.robot_node, child.room) not in [
-                    (node.robot_node, node.room) for node in node.frontier]:
+                if child != None and child.room not in node.explored and (child.robot_node, child.room) not in [(node.robot_node, node.room) for node in node.frontier]:
                     node.frontier.append(child)
 
         return None, dirty_count, Vdirty_count
@@ -1066,8 +1065,12 @@ class ImageProcessingApp:
         var_da_stampare.append("Costo Pulizia Dirty(1): " + str(var_dirty))
         var_da_stampare.append("Costo Pulizia Vdirty(3): " + str(var_Vdirty))
         var_da_stampare.append("Costo Totale: " + str(nodo_stampare.path_cost + var_dirty + var_Vdirty))
+        var_da_stampare.append("Percorso fatto: ")
+        for node in nodo_stampare.path():
+            var_da_stampare.append(str(node.room) + "Azioni verso la stanza: " + str(node.action))
+
         if (var_deterministic):
-            var_da_stampare.append("Algoritmo utilizzato: DfsAlt Deterministica")
+            var_da_stampare.append("\nAlgoritmo utilizzato: DfsAlt Deterministica")
         else:
             var_da_stampare.append("Algoritmo utilizzato: DfsAlt Randomica")
 
@@ -1081,7 +1084,9 @@ class ImageProcessingApp:
             var_da_stampare.append(state_matrix)
             var_da_stampare.append("")  # Aggiungi una riga vuota tra le righe della matrice
             var_da_stampare.append("Nodo Corrente: " + str(node.robot_node) + str(node.room))
+
             var_da_stampare.append("Azione verso Nodo Corrente: " + str(node.action))
+            var_da_stampare.append("Nodo Parent: " + str(node.parent))
 
             var_da_stampare.append("\nFrontiera Corrente: " + str(node.frontier))  # Aggiungere la rappresentazione della frontiera alla lista di output
             var_da_stampare.append("\nEsplorati Corrente: " + str(node.explored) + "\n")
@@ -1119,6 +1124,9 @@ class ImageProcessingApp:
         var_da_stampare.append("Costo Pulizia Dirty(1): " + str(var_dirty))
         var_da_stampare.append("Costo Pulizia Vdirty(3): " + str(var_Vdirty))
         var_da_stampare.append("Costo Totale: " + str(nodo_stampare.path_cost + var_dirty + var_Vdirty))
+        var_da_stampare.append("Percorso fatto: ")
+        for node in nodo_stampare.path():
+            var_da_stampare.append(str(node.room) + "Azioni verso la stanza: " + str(node.action))
         var_da_stampare.append("")
 
         var_da_stampare.append("\nEsecuzione Algoritmo GreedyAlt: ")
@@ -1141,6 +1149,7 @@ class ImageProcessingApp:
             var_da_stampare.append("")  # Aggiungi una riga vuota tra le righe della matrice
             var_da_stampare.append("Nodo Corrente: "+ str(node.robot_node) + str( node.room))
             var_da_stampare.append("Azione verso Nodo Corrente: " + str(node.action))
+            var_da_stampare.append("Nodo Parent: " + str(node.parent))
             frontier_contents = [item for item in node.frontier.heap]
             frontier_string = "[" + ", ".join(
                 str(item) for item in frontier_contents) + "]"  # Convertire la lista in una stringa
