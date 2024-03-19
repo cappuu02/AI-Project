@@ -153,6 +153,7 @@ def run_program(image_name, search_algorithm):
 
         def actions(self, state, room, node, deterministic, GreedyAlt):
 
+
             if GreedyAlt == True:
                 possible_actions = []
                 fixed_actions = []
@@ -161,6 +162,8 @@ def run_program(image_name, search_algorithm):
                 down = math.inf
                 left = math.inf
                 right = math.inf
+
+
 
                 if state in [self.dirty]:
                     fixed_actions.append("clean")
@@ -224,24 +227,35 @@ def run_program(image_name, search_algorithm):
                 return fixed_actions + possible_actions
 
             if GreedyAlt == False:
-                possible_actions = []
 
+                nodo_attuale = node.room
+                print("Stanza attuale: ", nodo_attuale)
+                for n in node.path():
+                    print("Stanza path: ", n.room)
+                    if(nodo_attuale == n.room):
+                        node.countloop += 1
+
+
+                possible_actions = []
+                fixed_actions = []
+                static = ["clean", "Vclean"]
+                remaining_actions = []
                 if (not deterministic):
-                    fixed_actions = []
-                    static = ["clean", "Vclean"]
-                    remaining_actions = []
+
+
+
                     deterministic_prob = 0.6  # Probabilità di scegliere un'azione deterministica invece di una randomica
 
                 robot_row, robot_col = room
 
                 if state in [self.dirty]:
                     possible_actions.append("clean")
-                    if (not deterministic):
-                        fixed_actions.append("clean")
+
+                    fixed_actions.append("clean")
                 if state in [self.Vdirty]:
                     possible_actions.append("Vclean")
-                    if (not deterministic):
-                        fixed_actions.append("Vclean")
+
+                    fixed_actions.append("Vclean")
 
                 # Verifichiamo se l'azione UP è possibile
                 if robot_row > 0:
@@ -282,7 +296,13 @@ def run_program(image_name, search_algorithm):
                     print("Azioni Possibili FinaliR", possible_actions_R)
                     return possible_actions_R
 
-                if (deterministic):
+                if (deterministic and node.countloop >= 4):
+                    node.countloop = 0
+                    remaining_actions = [action for action in possible_actions if action not in static]
+                    random.shuffle(remaining_actions)
+                    return fixed_actions + remaining_actions
+
+                if (deterministic and node.countloop <4):
                     print("Azioni possibiliD", possible_actions)
                     return possible_actions
 
@@ -492,7 +512,7 @@ def run_program(image_name, search_algorithm):
             return h_values
 
     class Node:
-        def __init__(self, robot_node, room, rooms, parent=None, action=None, path_cost=0, frontier=deque(), frontierpre = deque(),explored=set()):
+        def __init__(self, robot_node, room, rooms, parent=None, action=None, path_cost=0, frontier=deque(), frontierpre = deque(),explored=set(), countloop = 0):
             self.robot_node = robot_node
             self.room = room
             self.rooms = rooms
@@ -502,6 +522,7 @@ def run_program(image_name, search_algorithm):
             self.frontier = frontier or deque()
             self.explored = explored
             self.frontierpre = frontierpre or deque()
+            self.countloop = countloop
 
         def __repr__(self):
             return f"<Node ('{self.robot_node}', {self.room})>"
@@ -512,6 +533,8 @@ def run_program(image_name, search_algorithm):
 
         def child_node(self, problem, node, action):
             next_state = problem.result(node, action, problem)
+
+
 
             if next_state is None:
                 stato = ("'" + self.robot_node + "'", {self.room})
@@ -879,7 +902,6 @@ def run_program(image_name, search_algorithm):
             nodo_deterministico, dirty_count, Vdirty_count, rooms = DfsAlt(problema, True)
 
             nodo_randomico, dirty_count, Vdirty_count, rooms = DfsAlt(problema, False)
-
             print('--')
             print("--")
             print("Scelta migliore algoritmo: ")
@@ -1130,6 +1152,11 @@ class ImageProcessingApp:
         var_da_stampare.append("\n" + str(matrice_iniziale) + "")
 
         var_da_stampare.append("\n\nOutput Algoritmo: ")
+        if (var_deterministic):
+            var_da_stampare.append("Algoritmo utilizzato: DfsAlt Semi-Deterministica")
+        else:
+            var_da_stampare.append("Algoritmo utilizzato: DfsAlt Randomica")
+
         matrice_finale = "\n".join(" ".join(str(cell) for cell in row) for row in nodo_stampare.rooms)
         var_da_stampare.append("\nMatrice finale: \n" + str(matrice_finale))
         var_da_stampare.append("\nNodo Finale: " + str(nodo_stampare.robot_node) + str(nodo_stampare.room))
@@ -1140,11 +1167,6 @@ class ImageProcessingApp:
         var_da_stampare.append("Percorso fatto: ")
         for node in nodo_stampare.path():
             var_da_stampare.append(str(node.room) + "Azioni verso la stanza: " + str(node.action))
-
-        if (var_deterministic):
-            var_da_stampare.append("\nAlgoritmo utilizzato: DfsAlt Deterministica")
-        else:
-            var_da_stampare.append("Algoritmo utilizzato: DfsAlt Randomica")
 
         var_da_stampare.append("\n\nEsecuzione Algoritmo DfsAlt: ")
 
