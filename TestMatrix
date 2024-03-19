@@ -1,18 +1,17 @@
-import importlib.util
-import sys
-import os
+from tkinter.scrolledtext import ScrolledText
+
 import cv2
 from keras.models import load_model
-import numpy as np
 import matplotlib.pyplot as plt
-import networkx as nx
+
+from ttkthemes import ThemedStyle
+
 from utils import *
 from search import Problem
 from collections import deque
 import random
 import math
-import copy
-import queue
+
 
 
 def remove_grid(image):
@@ -139,7 +138,7 @@ def run_program(image_name, search_algorithm):
     print("")
     SF = check_SF(rooms)
     if(check_SF(rooms) == False):
-        return None, None, None, None, None
+        return None, None, None, None, None, rooms
 
     class SmartVacuum(Problem):
         def __init__(self, initial):
@@ -638,7 +637,7 @@ def run_program(image_name, search_algorithm):
             print("Frontiera post pop: ", node.frontier)
 
             if problem.goal_test((node.robot_node, (node.room)), node):
-                return node, dirty_count, Vdirty_count
+                return node, dirty_count, Vdirty_count, rooms
 
             node.explored.add(node.room)
 
@@ -653,7 +652,7 @@ def run_program(image_name, search_algorithm):
                 if child != None and child.room not in node.explored and (child.robot_node, child.room) not in [(node.robot_node, node.room) for node in node.frontier]:
                     node.frontier.append(child)
 
-        return None, dirty_count, Vdirty_count
+        return None, dirty_count, Vdirty_count, rooms
 
     # g è l'euristica
     def DfsAlt_greedy(problem, g):
@@ -692,7 +691,7 @@ def run_program(image_name, search_algorithm):
             stampa_matrice(node.g)
 
             if problem.goal_test((node.robot_node, (node.room)), node):
-                return node, dirty_count, Vdirty_count
+                return node, dirty_count, Vdirty_count, rooms
 
             node.explored.add(node.room)
 
@@ -703,7 +702,7 @@ def run_program(image_name, search_algorithm):
                     print("")
                     node.frontier.append(child)
 
-        return None, dirty_count, Vdirty_count
+        return None, dirty_count, Vdirty_count, rooms
 
     def GreedyAlt(problem, h=None):
         # Se la funzione euristica h non è specificata, viene utilizzata la funzione h predefinita del problema.
@@ -877,9 +876,9 @@ def run_program(image_name, search_algorithm):
             deterministic = True
             GreedyAlt = False
 
-            nodo_deterministico, dirty_count, Vdirty_count = DfsAlt(problema, True)
+            nodo_deterministico, dirty_count, Vdirty_count, rooms = DfsAlt(problema, True)
 
-            nodo_randomico, dirty_count, Vdirty_count = DfsAlt(problema, False)
+            nodo_randomico, dirty_count, Vdirty_count, rooms = DfsAlt(problema, False)
 
             print('--')
             print("--")
@@ -918,7 +917,7 @@ def run_program(image_name, search_algorithm):
             if (nodo_best != None):
                 print(nodo_best)
                 GreedyAlt = False
-                return nodo_best, dirty_count, Vdirty_count, deterministic, GreedyAlt
+                return nodo_best, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms
 
 
             else:
@@ -930,7 +929,7 @@ def run_program(image_name, search_algorithm):
                     "!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
                 print("Algoritmo usato: DfsAlt Deterministica e DfsAlt Randomica")
                 deterministic = True
-                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt
+                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms
 
         if (search_algorithm == "GreedyAlt"):
             nodo_best = None
@@ -939,7 +938,7 @@ def run_program(image_name, search_algorithm):
             deterministic = True
 
 
-            result, dirty_count, Vdirty_count = GreedyAlt(problema)
+            result, dirty_count, Vdirty_count, rooms = GreedyAlt(problema)
 
             GreedyAlt = True
 
@@ -948,7 +947,7 @@ def run_program(image_name, search_algorithm):
                 GreedyAlt = False
                 print(result.path_cost)
 
-                return result, dirty_count, Vdirty_count, deterministic, GreedyAlt
+                return result, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms
             else:
                 print("--")
                 print("--")
@@ -957,7 +956,7 @@ def run_program(image_name, search_algorithm):
                     "!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
                 print("Algoritmo usato: GreedyAlt")
                 deterministic = True
-                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt
+                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms
 
 
 ## INTERFACCIA GRAFICA
@@ -972,35 +971,47 @@ import sv_ttk
 
 class ImageProcessingApp:
     def __init__(self, root):
+
+
+
         self.root = root
+
         self.root.title("Vacuum Cleaner EdoLuc")
         self.root.geometry("1920x1080")
 
+
+
         self.image_path = ""
-        self.image_label = tk.Label(self.root, bg="light gray")
+        self.image_label = tk.Label(self.root)
         self.image_label.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
-        self.output_label = tk.Label(self.root, bg="light gray")
+        self.output_label = tk.Label(self.root)
         self.output_label.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
         # TEXT AREA
-        self.output_text = tk.Text(self.root, wrap=tk.WORD, height=10,
-                                   width=50)  # Definisci altezza e larghezza desiderate
+        self.output_text = tk.Text(self.root, wrap=tk.WORD, height=10, width=50)
         self.output_text.grid(row=1, column=1, columnspan=2, padx=10, pady=10, sticky="nsew")
 
-        button_frame = tk.Frame(self.root)
+        # Creazione dello scrollbar
+        tree_scroll = ttk.Scrollbar(self.root, orient="vertical", command=self.output_text.yview)
+        tree_scroll.grid(row=1, column=3, sticky='ns')
+
+        # Collegamento dello scrollbar a ScrolledText
+        self.output_text.config(yscrollcommand=tree_scroll.set)
+
+        button_frame = ttk.Frame(self.root)
         button_frame.grid(row=0, column=0, columnspan=2, pady=10)
 
-        self.load_button = tk.Button(button_frame, text="Carica Immagine", command=self.load_image, width=15, height=2)
+        self.load_button = ttk.Button(button_frame, text="Carica Immagine", style = "Accent.TButton", command=self.load_image)
         self.load_button.grid(row=0, column=0, padx=5)
 
-        self.DfsAlt_button = tk.Button(button_frame, text="DfsAlt", command=self.run_DfsAlt, width=15, height=2)
+        self.DfsAlt_button = ttk.Button(button_frame, text="DfsAlt", style = "Accent.TButton", command=self.run_DfsAlt)
         self.DfsAlt_button.grid(row=0, column=1, padx=5)
 
-        self.GreedyAlt_button = tk.Button(button_frame, text="GreedyAlt", command=self.run_GreedyAlt, width=15, height=2)
+        self.GreedyAlt_button = ttk.Button(button_frame, text="GreedyAlt", style = "Accent.TButton", command=self.run_GreedyAlt)
         self.GreedyAlt_button.grid(row=0, column=2, padx=5)
 
-        self.close_button = tk.Button(button_frame, text="Chiudi", command=self.close_app, width=15, height=2)
+        self.close_button = ttk.Button(button_frame, text="Chiudi", command=self.close_app)
         self.close_button.grid(row=0, column=3, padx=5)
 
         self.root.grid_rowconfigure(1, weight=1)
@@ -1079,30 +1090,40 @@ class ImageProcessingApp:
         self.output_text.insert(tk.END, "Esecuzione DfsAlt sulla matrice dell'immagine...")
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
 
-        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt = run_program(self.image_path, 'DfsAlt')
+        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms = run_program(self.image_path, 'DfsAlt')
 
 
 
         var_da_stampare = []
 
+
+        matrice_iniziale = "\n".join(" ".join(str(cell) for cell in row) for row in rooms)
+
+
         if (nodo_stampare == None and var_deterministic == None):
             self.output_text.config(state=tk.NORMAL)
             self.output_text.delete("1.0", tk.END)
-            self.output_text.insert(tk.END, "Impossibile trovare soluzione, matrice invalida!")
+            var_da_stampare.append("Impossibile trovare soluzione, matrice invalida!")
+            var_da_stampare.append("\nMatrice letta: ")
+            var_da_stampare.append("\n" + str(matrice_iniziale) + "")
+            testo_formattato = "\n".join(var_da_stampare)
+            self.output_text.insert(tk.END, testo_formattato)
             self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
             return None
 
         if(nodo_stampare == None and var_deterministic != None):
             self.output_text.config(state=tk.NORMAL)
             self.output_text.delete("1.0", tk.END)
-            self.output_text.insert(tk.END, "Impossibile raggiungere la stanza finale(F) e/o pulire tutte le stanze(D,V)!")
+            var_da_stampare.append("Impossibile raggiungere la stanza finale(F) e/o pulire tutte le stanze(D,V)!")
+            var_da_stampare.append("\nMatrice letta: ")
+            var_da_stampare.append("\n" + str(matrice_iniziale) + "")
+            testo_formattato = "\n".join(var_da_stampare)
+            self.output_text.insert(tk.END, testo_formattato)
             self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
             return None
 
 
-        for node in nodo_stampare.path():
-            matrice_iniziale = "\n".join(" ".join(str(cell) for cell in row) for row in node.rooms)
-            break
+
 
 
         var_da_stampare.append("Matrice letta: ")
@@ -1165,31 +1186,41 @@ class ImageProcessingApp:
             self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
             return
         self.output_text.config(state=tk.NORMAL)
-        self.output_text.insert(tk.END, "Esecuzione DfsAlt sulla matrice dell'immagine...")
+        self.output_text.insert(tk.END, "Esecuzione GreedyAlt sulla matrice dell'immagine...")
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
 
-        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt = run_program(self.image_path,
+        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms = run_program(self.image_path,
                                                                                                  'GreedyAlt')
+
+
+        matrice_iniziale = "\n".join(" ".join(str(cell) for cell in row) for row in rooms)
+
+
+        var_da_stampare = []
+
         if (nodo_stampare == None and var_deterministic == None):
             self.output_text.config(state=tk.NORMAL)
             self.output_text.delete("1.0", tk.END)
-            self.output_text.insert(tk.END, "Impossibile trovare soluzione, matrice invalida!")
+            var_da_stampare.append("Impossibile trovare soluzione, matrice invalida!")
+            var_da_stampare.append("\nMatrice letta: ")
+            var_da_stampare.append("\n" + str(matrice_iniziale) + "")
+            testo_formattato = "\n".join(var_da_stampare)
+            self.output_text.insert(tk.END, testo_formattato)
             self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
             return None
 
         if (nodo_stampare == None and var_deterministic != None):
             self.output_text.config(state=tk.NORMAL)
             self.output_text.delete("1.0", tk.END)
-            self.output_text.insert(tk.END,
-                                    "Impossibile raggiungere la stanza finale(F) e/o pulire tutte le stanze(D,V)!")
+            var_da_stampare.append("Impossibile raggiungere la stanza finale(F) e/o pulire tutte le stanze(D,V)!")
+            var_da_stampare.append("\nMatrice letta: ")
+            var_da_stampare.append("\n" + str(matrice_iniziale) + "")
+            testo_formattato = "\n".join(var_da_stampare)
+            self.output_text.insert(tk.END, testo_formattato)
             self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
             return None
 
-        for node in nodo_stampare.path():
-            matrice_iniziale = "\n".join(" ".join(str(cell) for cell in row) for row in node.rooms)
-            break
 
-        var_da_stampare = []
 
         var_da_stampare.append("Matrice letta: ")
         var_da_stampare.append("\n" + str(matrice_iniziale) + "")
@@ -1248,6 +1279,19 @@ class ImageProcessingApp:
 
 def main():
     root = tk.Tk()
+    root.option_add("*tearOff", False)  # This is always a good idea
+
+
+
+    style = ttk.Style(root)
+
+
+    root.tk.call('source', 'Tema/forest-dark.tcl')
+    # Set the theme with the theme_use method
+    style.theme_use('forest-dark')  # Theme files create a ttk theme, here you can put its name
+
+
+
     app = ImageProcessingApp(root)
     root.mainloop()
 
