@@ -1,3 +1,4 @@
+from datetime import time
 from tkinter.scrolledtext import ScrolledText
 
 import cv2
@@ -11,6 +12,7 @@ from search import Problem
 from collections import deque
 import random
 import math
+import time
 
 
 
@@ -1137,6 +1139,9 @@ class ImageProcessingApp:
             return
         self.output_text.config(state=tk.NORMAL)
         self.output_text.insert(tk.END, "Esecuzione DfsAlt sulla matrice dell'immagine...")
+        # Aggiorna l'interfaccia grafica
+        self.root.update_idletasks()
+
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
 
         nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms = run_program(self.image_path, 'DfsAlt')
@@ -1235,7 +1240,10 @@ class ImageProcessingApp:
             self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
             return
         self.output_text.config(state=tk.NORMAL)
-        self.output_text.insert(tk.END, "Esecuzione GreedyAlt sulla matrice dell'immagine...")
+        # Aggiornamento dell'output
+        self.output_text.insert(tk.END, "Esecuzione GreedyAlt sulla matrice dell'immagine...\n")
+        self.root.update_idletasks()
+
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
 
         nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms = run_program(self.image_path,
