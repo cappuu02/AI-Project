@@ -153,9 +153,16 @@ def run_program(image_name, search_algorithm):
 
         def actions(self, state, room, node, deterministic, GreedyAlt):
 
+            nodo_attuale = node.room
+
+            for n in node.path():
+                if (nodo_attuale == n.room):
+                    node.countloop += 1
+            print("CountLOOP: ",node.countloop)
 
             if GreedyAlt == True:
                 possible_actions = []
+                possible_actionsNoH = []
                 fixed_actions = []
                 robot_row, robot_col = room
                 up = math.inf
@@ -172,21 +179,34 @@ def run_program(image_name, search_algorithm):
 
                 if (robot_row > 0):
                     up = self.h_extract((room[0] - 1, room[1]), node.g)
-                    up_deadend = next_room_deadend(node, (room[0] - 1, room[1]))
 
                 if (robot_row < len(rooms) - 1):
                     down = self.h_extract((room[0] + 1, room[1]), node.g)
-                    down_deadend = next_room_deadend(node, (room[0] + 1, room[1]))
 
                 if (robot_col > 0):
                     left = self.h_extract((room[0], room[1] - 1), node.g)
-                    left_deadend = next_room_deadend(node, (room[0], room[1] - 1))
 
                 if (robot_col < len(rooms) - 1):
                     right = self.h_extract((room[0], room[1] + 1), node.g)
-                    right_deadend = next_room_deadend(node, (room[0], room[1] + 1))
 
                 do = min(up, down, left, right)
+
+                if do != up and robot_row > 0:
+                    lettera = find_letter_position(node, room[0] - 1, room[1])
+                    if lettera != self.deny:
+                        possible_actionsNoH.append("move_up")
+                if do != down and robot_row < len(rooms) - 1:
+                    lettera = find_letter_position(node, room[0] + 1, room[1])
+                    if lettera != self.deny:
+                        possible_actionsNoH.append("move_down")
+                if do != left and robot_col > 0:
+                    lettera = find_letter_position(node, room[0], room[1] - 1)
+                    if lettera != self.deny:
+                        possible_actionsNoH.append("move_left")
+                if do != right and robot_col < len(rooms) - 1:
+                    lettera = find_letter_position(node, room[0], room[1] + 1)
+                    if lettera != self.deny:
+                        possible_actionsNoH.append("move_right")
 
                 # Verifichiamo se l'azione UP è possibile
                 if do == up and robot_row > 0:
@@ -221,19 +241,25 @@ def run_program(image_name, search_algorithm):
                         else:
                             possible_actions.append("move_right")
 
-                robot_stuck(node, node.explored, possible_actions)
 
-                print("Azioni Possibili: ", fixed_actions + possible_actions)
-                return fixed_actions + possible_actions
+                if(node.countloop >= 4):
+                    print(possible_actions)
+                    print(possible_actionsNoH)
+                    possible_actions_ordered = possible_actions + possible_actionsNoH
+                    random.shuffle(possible_actions_ordered)
+                    robot_stuck(node, node.explored, possible_actions_ordered)
+                    print(possible_actions_ordered)
+
+                    print(fixed_actions + possible_actions_ordered)
+                    return fixed_actions + possible_actions_ordered
+                if(node.countloop < 4):
+                    print("Azioni Possibili: ", fixed_actions + possible_actions)
+                    robot_stuck(node, node.explored, possible_actions)
+                    return fixed_actions + possible_actions
 
             if GreedyAlt == False:
 
-                nodo_attuale = node.room
-                print("Stanza attuale: ", nodo_attuale)
-                for n in node.path():
-                    print("Stanza path: ", n.room)
-                    if(nodo_attuale == n.room):
-                        node.countloop += 1
+
 
 
                 possible_actions = []
@@ -561,7 +587,7 @@ def run_program(image_name, search_algorithm):
 
     class NodeGreedy:
         def __init__(self, robot_node, room, rooms, f, g, parent=None, action=None, path_cost=0,
-                     frontier=None, frontierpre=None, explored=None):
+                     frontier=None, frontierpre=None, explored=None, countloop = 0):
             self.robot_node = robot_node
             self.room = room
             self.rooms = rooms
@@ -573,6 +599,7 @@ def run_program(image_name, search_algorithm):
             self.frontier = frontier if frontier is not None else PriorityQueue()
             self.explored = explored if explored is not None else set()
             self.frontierpre = frontierpre if frontierpre is not None else PriorityQueue()
+            self.countloop = countloop
 
         def __lt__(self, other):
             return self.f < other.f
