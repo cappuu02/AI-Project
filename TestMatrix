@@ -1,18 +1,16 @@
-from datetime import time
-from tkinter.scrolledtext import ScrolledText
+
 
 import cv2
 from keras.models import load_model
 import matplotlib.pyplot as plt
 
-from ttkthemes import ThemedStyle
 
 from utils import *
 from search import Problem
 from collections import deque
 import random
 import math
-import time
+
 
 
 
@@ -1113,6 +1111,10 @@ class ImageProcessingApp:
 
             # Process image
             self.image_matrix = self.process_image(image)
+        else:
+            self.image_path = None
+
+
 
     def update_output(self, message):
         self.output_label.config(text=message)
@@ -1130,7 +1132,7 @@ class ImageProcessingApp:
         self.output_text.config(state=tk.NORMAL)
         self.output_text.delete("1.0", tk.END)
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
-        if not hasattr(self, 'image_matrix'):
+        if not hasattr(self, 'image_matrix') or self.image_path == None:
 
             self.output_text.config(state=tk.NORMAL)
             self.output_text.delete("1.0", tk.END)
@@ -1151,7 +1153,8 @@ class ImageProcessingApp:
         var_da_stampare = []
 
 
-        matrice_iniziale = "\n".join(" ".join(str(cell) for cell in row) for row in rooms)
+        matrice_iniziale = "\n".join("  ".join(str(cell) for cell in row) for row in rooms)
+
 
 
         if (nodo_stampare == None and var_deterministic == None):
@@ -1233,7 +1236,7 @@ class ImageProcessingApp:
         self.output_text.config(state=tk.NORMAL)
         self.output_text.delete("1.0", tk.END)
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
-        if not hasattr(self, 'image_matrix'):
+        if not hasattr(self, 'image_matrix') or self.image_path == None:
             self.output_text.config(state=tk.NORMAL)
             self.output_text.delete("1.0", tk.END)
             self.output_text.insert(tk.END, "Errore: Nessuna immagine caricata.")
