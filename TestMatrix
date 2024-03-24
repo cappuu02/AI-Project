@@ -1112,6 +1112,7 @@ class ImageProcessingApp:
             # Process image
             self.image_matrix = self.process_image(image)
         else:
+            self.image_label.image = None
             self.image_path = None
 
 
@@ -1358,8 +1359,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
