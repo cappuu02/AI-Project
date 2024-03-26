@@ -2,9 +2,6 @@
 
 import cv2
 from keras.models import load_model
-import matplotlib.pyplot as plt
-
-
 from utils import *
 from search import Problem
 from collections import deque
@@ -26,13 +23,6 @@ def remove_grid(image):
             cv2.line(image, (x1, y1), (x2, y2), (255, 255, 255), 10)
 
     return image
-
-
-# Funzione per mostrare l'immagine
-def show_image(image):
-    plt.imshow(image, cmap='gray')
-    plt.axis('off')
-    plt.show()
 
 
 # Widget per caricare e visualizzare l'immagine
@@ -666,7 +656,7 @@ def run_program(image_name, search_algorithm):
             return list(reversed(path_back))
 
     def DfsAlt(problem, deterministic):
-        max_count = len(rooms) * len(rooms) * 8
+        max_count = len(rooms) * len(rooms) * 10
         count = 0
 
         if (not deterministic):
@@ -1035,7 +1025,6 @@ from tkinter import filedialog
 from PIL import Image, ImageTk
 import numpy as np
 from tkinter import ttk
-import sv_ttk
 
 
 class ImageProcessingApp:
@@ -1251,9 +1240,8 @@ class ImageProcessingApp:
 
         var_da_stampare = []
 
-
-        matrice_iniziale = "\n".join("  ".join(str(cell) for cell in row) for row in rooms)
-
+        matrice_iniziale = "\n".join(
+            "  ".join(str(cell) + "\u2006" if cell == "X" else str(cell) for cell in row) for row in rooms)
 
 
         if (nodo_stampare == None and var_deterministic == None):
@@ -1293,7 +1281,8 @@ class ImageProcessingApp:
         else:
             var_da_stampare.append("Algoritmo utilizzato: DfsAlt Randomica")
 
-        matrice_finale = "\n".join(" ".join(str(cell) for cell in row) for row in nodo_stampare.rooms)
+        matrice_finale = "\n".join(
+            "  ".join(str(cell) + "\u2006" if cell == "X" else str(cell) for cell in row) for row in nodo_stampare.rooms)
         var_da_stampare.append("\nMatrice finale: \n" + str(matrice_finale))
         var_da_stampare.append("\nNodo Finale: " + str(nodo_stampare.robot_node) + str(nodo_stampare.room))
         var_da_stampare.append("Costo Distanza: " + str(nodo_stampare.path_cost))
@@ -1310,7 +1299,8 @@ class ImageProcessingApp:
             # Aggiungi un'intestazione sopra ogni matrice
             var_da_stampare.append(f"\nPasso {i + 1}:")
             # Formatta la matrice dello stato corrente
-            state_matrix = "\n".join(" ".join(str(cell) for cell in row) for row in node.rooms)
+            state_matrix = "\n".join(
+            "  ".join(str(cell) + "\u2006" if cell == "X" else str(cell) for cell in row) for row in node.rooms)
             var_da_stampare.append(state_matrix)
             var_da_stampare.append("")  # Aggiungi una riga vuota tra le righe della matrice
             var_da_stampare.append("Nodo Corrente: " + str(node.robot_node) + str(node.room))
@@ -1360,7 +1350,8 @@ class ImageProcessingApp:
         # Converti gli array numpy in oggetti PIL.Image
         image_sequence = [Image.fromarray(img) for img in T_images]
 
-        matrice_iniziale = "\n".join(" ".join(str(cell) for cell in row) for row in rooms)
+        matrice_iniziale = "\n".join(
+            "  ".join(str(cell) + "\u2006" if cell == "X" else str(cell) for cell in row) for row in rooms)
 
 
         var_da_stampare = []
@@ -1395,7 +1386,8 @@ class ImageProcessingApp:
         var_da_stampare.append("\n" + str(matrice_iniziale) + "")
 
         var_da_stampare.append("\n\nOutput Algoritmo: ")
-        matrice_finale = "\n".join(" ".join(str(cell) for cell in row) for row in nodo_stampare.rooms)
+        matrice_finale = "\n".join(
+            "  ".join(str(cell) + "\u2006" if cell == "X" else str(cell) for cell in row) for row in nodo_stampare.rooms)
         var_da_stampare.append("\nMatrice finale: \n" + str(matrice_finale))
         var_da_stampare.append("\nNodo Finale: " + str(nodo_stampare.robot_node) + str(nodo_stampare.room))
         var_da_stampare.append("Costo Distanza: " + str(nodo_stampare.path_cost))
@@ -1410,10 +1402,11 @@ class ImageProcessingApp:
         var_da_stampare.append("\nEsecuzione Algoritmo GreedyAlt: ")
         for i, node in enumerate(nodo_stampare.path()):
             # Formatta la matrice dello stato corrente
-            state_matrix = "\n".join(" ".join(str(cell) for cell in row) for row in node.rooms)
+            state_matrix = "\n".join(
+            "  ".join(str(cell) + "\u2006" if cell == "X" else str(cell) for cell in row) for row in node.rooms)
 
             heuristic_formatted = "\n".join(
-                " ".join("∞" if cell == math.inf else str(cell) for cell in row) for row in node.g)
+                            " ".join(str(cell).rjust(3) if len(str(cell)) == 2 else str(cell).rjust(2) if cell != math.inf else "X".rjust(2) for cell in row) for row in node.g)
 
             # Unisci la matrice dello stato corrente e quella dell'euristica
             combined_matrices = []
@@ -1457,7 +1450,7 @@ def main():
     # Set the theme with the theme_use method
     style.theme_use('forest-dark')  # Theme files create a ttk theme, here you can put its name
 
-    app = ImageProcessingApp(root)
+    ImageProcessingApp(root)
     root.mainloop()
 
 
