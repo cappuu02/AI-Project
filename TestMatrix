@@ -65,6 +65,7 @@ def stampa_matrice(rooms):
 
 def run_program(image_name, search_algorithm):
     image_without_grid = load_and_display_image(image_name)
+    image1 = cv2.imread(image_name)
 
     def check_SF(rooms):
         S_count = 0
@@ -90,16 +91,19 @@ def run_program(image_name, search_algorithm):
 
     resized_image = cv2.resize(gray_image, (0, 0), fx=0.5, fy=0.5)
     blurred_image = cv2.GaussianBlur(resized_image, (5, 5), 0)
-    _, binary_image = cv2.threshold(blurred_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    binary_image = cv2.bitwise_not(binary_image)
+    _, binary_image1 = cv2.threshold(blurred_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    binary_image = cv2.bitwise_not(binary_image1)
 
     contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     model = load_model(model_path)
     predicted_letters = []
 
+    if(contours == None):
+        return None, None, None, None, None, None, None
+
+
     for contour in contours:
-        contour_area = cv2.contourArea(contour)
 
         x, y, w, h = cv2.boundingRect(contour)
 
@@ -114,6 +118,8 @@ def run_program(image_name, search_algorithm):
         letter_mapping = {'S': 19, 'C': 3, 'X': 24, 'V': 22, 'D': 4, 'F': 6}
         predicted_letter = [letter for letter, value in letter_mapping.items() if value == predicted_value][0]
         predicted_letters.append((predicted_letter, x, y))
+
+    transformed_images = [image1, image_without_grid, gray_image, blurred_image, binary_image1, binary_image, roi]
 
     predicted_letters.sort(key=lambda x: x[2])
     row_letters = []
@@ -138,7 +144,7 @@ def run_program(image_name, search_algorithm):
     print("")
     SF = check_SF(rooms)
     if(check_SF(rooms) == False):
-        return None, None, None, None, None, rooms
+        return None, None, None, None, None, rooms, transformed_images
 
     class SmartVacuum(Problem):
         def __init__(self, initial):
@@ -398,6 +404,8 @@ def run_program(image_name, search_algorithm):
 
             dirty_rooms = []
             final_position = None
+            nearest_dirty_room = None
+            inaccessibile = False
             nearest_distance = math.inf
             deadend_rooms = []
 
@@ -419,9 +427,14 @@ def run_program(image_name, search_algorithm):
 
                         if distance < nearest_distance and next_room_deadend(node, room) == None:
                             print("!!!Stanza Inaccessibile: ", room)
+                            inaccessibile = True
+                            room_inaccessibile = room
 
                     if cell == "F":
                         final_position = (row_idx, col_idx)
+
+            if (inaccessibile == True and nearest_dirty_room == None):
+                nearest_dirty_room = room_inaccessibile
 
             if (deadend_rooms != None):
                 for row_idx, row in enumerate(node.rooms):
@@ -470,6 +483,8 @@ def run_program(image_name, search_algorithm):
             final_position = None
             initial_position = None
             nearest_distance = math.inf
+            nearest_dirty_room = None
+            inaccessibile = False
             deadend_rooms = []
 
             # Trova la posizione iniziale
@@ -496,6 +511,11 @@ def run_program(image_name, search_algorithm):
 
                         if distance < nearest_distance and next_room_deadend_Nonode(rooms, room) == None:
                             print("!!!Stanza Inaccessibile: ", room)
+                            inaccessibile = True
+                            room_inaccessibile = room
+
+            if(inaccessibile == True and nearest_dirty_room == None):
+                nearest_dirty_room = room_inaccessibile
 
             if (deadend_rooms != None):
                 for row_idx, row in enumerate(rooms):
@@ -687,7 +707,7 @@ def run_program(image_name, search_algorithm):
             print("Frontiera post pop: ", node.frontier)
 
             if problem.goal_test((node.robot_node, (node.room)), node):
-                return node, dirty_count, Vdirty_count, rooms
+                return node, dirty_count, Vdirty_count, rooms, transformed_images
 
             node.explored.add(node.room)
 
@@ -702,7 +722,7 @@ def run_program(image_name, search_algorithm):
                 if child != None and child.room not in node.explored and (child.robot_node, child.room) not in [(node.robot_node, node.room) for node in node.frontier]:
                     node.frontier.append(child)
 
-        return None, dirty_count, Vdirty_count, rooms
+        return None, dirty_count, Vdirty_count, rooms, transformed_images
 
     # g è l'euristica
     def DfsAlt_greedy(problem, g):
@@ -741,7 +761,7 @@ def run_program(image_name, search_algorithm):
             stampa_matrice(node.g)
 
             if problem.goal_test((node.robot_node, (node.room)), node):
-                return node, dirty_count, Vdirty_count, rooms
+                return node, dirty_count, Vdirty_count, rooms, transformed_images
 
             node.explored.add(node.room)
 
@@ -752,7 +772,7 @@ def run_program(image_name, search_algorithm):
                     print("")
                     node.frontier.append(child)
 
-        return None, dirty_count, Vdirty_count, rooms
+        return None, dirty_count, Vdirty_count, rooms, transformed_images
 
     def GreedyAlt(problem, h=None):
         # Se la funzione euristica h non è specificata, viene utilizzata la funzione h predefinita del problema.
@@ -926,9 +946,9 @@ def run_program(image_name, search_algorithm):
             deterministic = True
             GreedyAlt = False
 
-            nodo_deterministico, dirty_count, Vdirty_count, rooms = DfsAlt(problema, True)
+            nodo_deterministico, dirty_count, Vdirty_count, rooms, T_images = DfsAlt(problema, True)
 
-            nodo_randomico, dirty_count, Vdirty_count, rooms = DfsAlt(problema, False)
+            nodo_randomico, dirty_count, Vdirty_count, rooms, T_images = DfsAlt(problema, False)
             print('--')
             print("--")
             print("Scelta migliore algoritmo: ")
@@ -966,7 +986,7 @@ def run_program(image_name, search_algorithm):
             if (nodo_best != None):
                 print(nodo_best)
                 GreedyAlt = False
-                return nodo_best, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms
+                return nodo_best, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms, T_images
 
 
             else:
@@ -978,7 +998,7 @@ def run_program(image_name, search_algorithm):
                     "!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
                 print("Algoritmo usato: DfsAlt Deterministica e DfsAlt Randomica")
                 deterministic = True
-                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms
+                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms, T_images
 
         if (search_algorithm == "GreedyAlt"):
             nodo_best = None
@@ -987,7 +1007,7 @@ def run_program(image_name, search_algorithm):
             deterministic = True
 
 
-            result, dirty_count, Vdirty_count, rooms = GreedyAlt(problema)
+            result, dirty_count, Vdirty_count, rooms,T_images = GreedyAlt(problema)
 
             GreedyAlt = True
 
@@ -996,7 +1016,7 @@ def run_program(image_name, search_algorithm):
                 GreedyAlt = False
                 print(result.path_cost)
 
-                return result, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms
+                return result, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms,T_images
             else:
                 print("--")
                 print("--")
@@ -1005,7 +1025,7 @@ def run_program(image_name, search_algorithm):
                     "!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
                 print("Algoritmo usato: GreedyAlt")
                 deterministic = True
-                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms
+                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms,T_images
 
 
 ## INTERFACCIA GRAFICA
@@ -1079,6 +1099,9 @@ class ImageProcessingApp:
     def load_image(self):
         self.image_path = filedialog.askopenfilename()
         if self.image_path:
+
+            if hasattr(self, 'canvas'):
+                self.canvas.destroy()
             # Apri l'immagine
             image = Image.open(self.image_path)
 
@@ -1128,9 +1151,82 @@ class ImageProcessingApp:
         matrix = np.random.randint(0, 2, size=(height, width))  # Random binary matrix for demonstration
         return matrix
 
+    def display_image_sequence(self, image_sequence):
+        if not image_sequence:
+            return
+
+        # Creazione di un Canvas per mostrare le immagini
+        max_width = self.root.winfo_width() - 500  # Larghezza massima consentita
+        max_height = self.root.winfo_height() - 500  # Altezza massima consentita
+
+        # Definiamo un colore grigio scuro con valori RGB più bassi
+        grigio_scuro = "#333333"
+
+        # Creiamo un canvas con il colore grigio scuro come sfondo
+        self.canvas = tk.Canvas(self.root, bg=grigio_scuro, width=10, height=50)
+        self.canvas.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")  # Usa grid invece di pack
+
+        # Mostra tutte le immagini in sequenza sul Canvas
+        count = 10
+        count2 = 10
+        riga = 0
+        self.images_on_canvas = []  # Lista per mantenere traccia degli elementi di immagine sul canvas
+
+        for i, img in enumerate(image_sequence):
+            riga += 1
+
+
+            # Ottieni le dimensioni massime consentite per l'immagine
+            max_width = self.root.winfo_width() - 650  # Larghezza massima consentita
+            max_height = self.root.winfo_height() - 650  # Altezza massima consentita
+
+            # Ridimensiona l'immagine se necessario
+            if img.width > max_width or img.height > max_height:
+                # Calcola i rapporti di ridimensionamento per mantenere l'aspect ratio
+                width_ratio = max_width / img.width
+                height_ratio = max_height / img.height
+
+                # Se l'immagine è più ampia del consentito, ridimensiona rispettando l'aspect ratio
+                if width_ratio < height_ratio:
+                    new_width = max_width
+                    new_height = int(img.height * (max_width / img.width))
+                # Altrimenti, se l'immagine è più alta del consentito, ridimensiona rispettando l'aspect ratio
+                else:
+                    new_height = max_height
+                    new_width = int(img.width * (max_height / img.height))
+
+                # Ridimensiona l'immagine
+                img = img.resize((new_width, new_height))
+
+            # Mostra l'immagine sul Canvas
+            photo = ImageTk.PhotoImage(img)
+            self.canvas.create_image(count, count2, anchor="nw", image=photo)
+            count += 500
+            if (riga >= 2):
+                riga = 0
+                count = 10
+                count2 += 240
+            self.images_on_canvas.append(photo)
+            self.root.update_idletasks()  # Aggiorna la finestra per visualizzare l'immagine corrente
+
+        count = 350
+        count2 = 250
+        self.canvas.create_image(count, count2, anchor="nw", image=photo)
+        self.images_on_canvas.append(photo)
+        self.root.update_idletasks()  # Aggiorna la finestra per visualizzare l'immagine corrente
+
+
+    def show_image(self, img):
+        photo = ImageTk.PhotoImage(img)
+        self.image_label.config(image=photo)
+        self.image_label.image = photo
+
     def run_DfsAlt(self):
         # COMANDO PER PULIRE LA TEXT AREA
         self.output_text.config(state=tk.NORMAL)
+        # Elimina il canvas se esiste già
+        if hasattr(self, 'canvas'):
+            self.canvas.destroy()
         self.output_text.delete("1.0", tk.END)
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
         if not hasattr(self, 'image_matrix') or self.image_path == None:
@@ -1147,8 +1243,10 @@ class ImageProcessingApp:
 
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
 
-        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms = run_program(self.image_path, 'DfsAlt')
+        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms, T_images = run_program(self.image_path, 'DfsAlt')
 
+        # Converti gli array numpy in oggetti PIL.Image
+        image_sequence = [Image.fromarray(img) for img in T_images]
 
 
         var_da_stampare = []
@@ -1161,10 +1259,11 @@ class ImageProcessingApp:
         if (nodo_stampare == None and var_deterministic == None):
             self.output_text.config(state=tk.NORMAL)
             self.output_text.delete("1.0", tk.END)
-            var_da_stampare.append("Impossibile trovare soluzione, matrice invalida!")
+            var_da_stampare.append("Impossibile trovare soluzione, matrice invalida o immagine invalida!")
             var_da_stampare.append("\nMatrice letta: ")
             var_da_stampare.append("\n" + str(matrice_iniziale) + "")
             testo_formattato = "\n".join(var_da_stampare)
+            self.display_image_sequence(image_sequence)
             self.output_text.insert(tk.END, testo_formattato)
             self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
             return None
@@ -1176,6 +1275,7 @@ class ImageProcessingApp:
             var_da_stampare.append("\nMatrice letta: ")
             var_da_stampare.append("\n" + str(matrice_iniziale) + "")
             testo_formattato = "\n".join(var_da_stampare)
+            self.display_image_sequence(image_sequence)
             self.output_text.insert(tk.END, testo_formattato)
             self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
             return None
@@ -1228,6 +1328,8 @@ class ImageProcessingApp:
 
         self.output_text.config(state=tk.NORMAL)  # Abilita il widget di output
         self.output_text.delete("1.0", tk.END)
+        self.display_image_sequence(image_sequence)
+
         self.output_text.insert(tk.END, testo_formattato)
         self.output_text.config(state=tk.DISABLED)  # Abilita il widget di output
         return
@@ -1235,6 +1337,8 @@ class ImageProcessingApp:
     def run_GreedyAlt(self):
         # COMANDO PER PULIRE LA TEXT AREA
         self.output_text.config(state=tk.NORMAL)
+        if hasattr(self, 'canvas'):
+            self.canvas.destroy()
         self.output_text.delete("1.0", tk.END)
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
         if not hasattr(self, 'image_matrix') or self.image_path == None:
@@ -1250,9 +1354,11 @@ class ImageProcessingApp:
 
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
 
-        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms = run_program(self.image_path,
+        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms, T_images = run_program(self.image_path,
                                                                                                  'GreedyAlt')
 
+        # Converti gli array numpy in oggetti PIL.Image
+        image_sequence = [Image.fromarray(img) for img in T_images]
 
         matrice_iniziale = "\n".join(" ".join(str(cell) for cell in row) for row in rooms)
 
@@ -1266,6 +1372,7 @@ class ImageProcessingApp:
             var_da_stampare.append("\nMatrice letta: ")
             var_da_stampare.append("\n" + str(matrice_iniziale) + "")
             testo_formattato = "\n".join(var_da_stampare)
+            self.display_image_sequence(image_sequence)
             self.output_text.insert(tk.END, testo_formattato)
             self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
             return None
@@ -1277,6 +1384,7 @@ class ImageProcessingApp:
             var_da_stampare.append("\nMatrice letta: ")
             var_da_stampare.append("\n" + str(matrice_iniziale) + "")
             testo_formattato = "\n".join(var_da_stampare)
+            self.display_image_sequence(image_sequence)
             self.output_text.insert(tk.END, testo_formattato)
             self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
             return None
@@ -1330,6 +1438,7 @@ class ImageProcessingApp:
 
         self.output_text.config(state=tk.NORMAL)  # Abilita il widget di output
         self.output_text.delete("1.0", tk.END)
+        self.display_image_sequence(image_sequence)
         self.output_text.insert(tk.END, testo_formattato)
         self.output_text.config(state=tk.DISABLED)  # Abilita il widget di output
         return
@@ -1342,16 +1451,11 @@ def main():
     root = tk.Tk()
     root.option_add("*tearOff", False)  # This is always a good idea
 
-
-
     style = ttk.Style(root)
-
 
     root.tk.call('source', 'Tema/forest-dark.tcl')
     # Set the theme with the theme_use method
     style.theme_use('forest-dark')  # Theme files create a ttk theme, here you can put its name
-
-
 
     app = ImageProcessingApp(root)
     root.mainloop()
