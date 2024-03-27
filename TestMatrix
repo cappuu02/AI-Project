@@ -54,6 +54,7 @@ def stampa_matrice(rooms):
 
 
 def run_program(image_name, search_algorithm):
+    start_time_ocr = time.time()
     image_without_grid = load_and_display_image(image_name)
     image1 = cv2.imread(image_name)
 
@@ -125,6 +126,8 @@ def run_program(image_name, search_algorithm):
             current_row = [letter_info]
         prev_y = y
 
+    end_time_ocr = time.time()
+    time_ocr = end_time_ocr - start_time_ocr
     row_letters.append(sorted(current_row, key=lambda x: x[1]))
     rooms = [[letter_info[0] for letter_info in row] for row in row_letters]
     print("")
@@ -134,7 +137,7 @@ def run_program(image_name, search_algorithm):
     print("")
     SF = check_SF(rooms)
     if(check_SF(rooms) == False):
-        return None, None, None, None, None, rooms, transformed_images
+        return None, None, None, None, None, rooms, transformed_images, time_ocr, None
 
     class SmartVacuum(Problem):
         def __init__(self, initial):
@@ -656,6 +659,7 @@ def run_program(image_name, search_algorithm):
             return list(reversed(path_back))
 
     def DfsAlt(problem, deterministic):
+        start_time_alg = time.time()
         max_count = len(rooms) * len(rooms) * 10
         count = 0
 
@@ -697,7 +701,9 @@ def run_program(image_name, search_algorithm):
             print("Frontiera post pop: ", node.frontier)
 
             if problem.goal_test((node.robot_node, (node.room)), node):
-                return node, dirty_count, Vdirty_count, rooms, transformed_images
+                end_time_alg = time.time()
+                time_alg = end_time_alg - start_time_alg
+                return node, dirty_count, Vdirty_count, rooms, transformed_images, time_alg
 
             node.explored.add(node.room)
 
@@ -712,10 +718,13 @@ def run_program(image_name, search_algorithm):
                 if child != None and child.room not in node.explored and (child.robot_node, child.room) not in [(node.robot_node, node.room) for node in node.frontier]:
                     node.frontier.append(child)
 
-        return None, dirty_count, Vdirty_count, rooms, transformed_images
+        end_time_alg = time.time()
+        time_alg = end_time_alg - start_time_alg
+        return None, dirty_count, Vdirty_count, rooms, transformed_images, time_alg
 
     # g è l'euristica
     def DfsAlt_greedy(problem, g):
+        start_time_alg = time.time()
         max_count = len(rooms) * len(rooms) * 20
         count = 0
 
@@ -751,7 +760,10 @@ def run_program(image_name, search_algorithm):
             stampa_matrice(node.g)
 
             if problem.goal_test((node.robot_node, (node.room)), node):
-                return node, dirty_count, Vdirty_count, rooms, transformed_images
+                end_time_alg = time.time()
+                time_alg = end_time_alg - start_time_alg
+
+                return node, dirty_count, Vdirty_count, rooms, transformed_images, time_alg
 
             node.explored.add(node.room)
 
@@ -762,7 +774,9 @@ def run_program(image_name, search_algorithm):
                     print("")
                     node.frontier.append(child)
 
-        return None, dirty_count, Vdirty_count, rooms, transformed_images
+        end_time_alg = time.time()
+        time_alg = end_time_alg - start_time_alg
+        return None, dirty_count, Vdirty_count, rooms, transformed_images, time_alg
 
     def GreedyAlt(problem, h=None):
         # Se la funzione euristica h non è specificata, viene utilizzata la funzione h predefinita del problema.
@@ -936,9 +950,11 @@ def run_program(image_name, search_algorithm):
             deterministic = True
             GreedyAlt = False
 
-            nodo_deterministico, dirty_count, Vdirty_count, rooms, T_images = DfsAlt(problema, True)
 
-            nodo_randomico, dirty_count, Vdirty_count, rooms, T_images = DfsAlt(problema, False)
+            nodo_deterministico, dirty_count, Vdirty_count, rooms, T_images, time_alg = DfsAlt(problema, True)
+
+
+            nodo_randomico, dirty_count, Vdirty_count, rooms, T_images, time_alg = DfsAlt(problema, False)
             print('--')
             print("--")
             print("Scelta migliore algoritmo: ")
@@ -976,7 +992,7 @@ def run_program(image_name, search_algorithm):
             if (nodo_best != None):
                 print(nodo_best)
                 GreedyAlt = False
-                return nodo_best, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms, T_images
+                return nodo_best, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms, T_images, time_ocr, time_alg
 
 
             else:
@@ -988,7 +1004,7 @@ def run_program(image_name, search_algorithm):
                     "!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
                 print("Algoritmo usato: DfsAlt Deterministica e DfsAlt Randomica")
                 deterministic = True
-                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms, T_images
+                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms, T_images, time_ocr, time_alg
 
         if (search_algorithm == "GreedyAlt"):
             nodo_best = None
@@ -997,7 +1013,8 @@ def run_program(image_name, search_algorithm):
             deterministic = True
 
 
-            result, dirty_count, Vdirty_count, rooms,T_images = GreedyAlt(problema)
+            result, dirty_count, Vdirty_count, rooms,T_images, time_alg = GreedyAlt(problema)
+
 
             GreedyAlt = True
 
@@ -1006,7 +1023,7 @@ def run_program(image_name, search_algorithm):
                 GreedyAlt = False
                 print(result.path_cost)
 
-                return result, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms,T_images
+                return result, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms,T_images, time_ocr, time_alg
             else:
                 print("--")
                 print("--")
@@ -1015,7 +1032,7 @@ def run_program(image_name, search_algorithm):
                     "!!!!Destinazione finale(F) non presente/irraggiungibile o matrice invalida, cambiare matrice di input...!!!!")
                 print("Algoritmo usato: GreedyAlt")
                 deterministic = True
-                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms,T_images
+                return None, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms,T_images, time_ocr, time_alg
 
 
 ## INTERFACCIA GRAFICA
@@ -1198,8 +1215,8 @@ class ImageProcessingApp:
             self.images_on_canvas.append(photo)
             self.root.update_idletasks()  # Aggiorna la finestra per visualizzare l'immagine corrente
 
-        count = 350
-        count2 = 250
+        count = 470
+        count2 = 490
         self.canvas.create_image(count, count2, anchor="nw", image=photo)
         self.images_on_canvas.append(photo)
         self.root.update_idletasks()  # Aggiorna la finestra per visualizzare l'immagine corrente
@@ -1233,7 +1250,7 @@ class ImageProcessingApp:
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
 
         start_time = time.time()
-        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms, T_images = run_program(self.image_path, 'DfsAlt')
+        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms, T_images, time_ocr, time_alg = run_program(self.image_path, 'DfsAlt')
         end_time = time.time()
         # Converti gli array numpy in oggetti PIL.Image
         image_sequence = [Image.fromarray(img) for img in T_images]
@@ -1251,6 +1268,7 @@ class ImageProcessingApp:
             var_da_stampare.append("Impossibile trovare soluzione, matrice invalida o immagine invalida!")
             var_da_stampare.append("\nMatrice letta: ")
             var_da_stampare.append("\n" + str(matrice_iniziale) + "")
+            var_da_stampare.append("Tempo di lettura: " + str(round(time_ocr, 3)) + "s")
             testo_formattato = "\n".join(var_da_stampare)
             self.display_image_sequence(image_sequence)
             self.output_text.insert(tk.END, testo_formattato)
@@ -1263,6 +1281,7 @@ class ImageProcessingApp:
             var_da_stampare.append("Impossibile raggiungere la stanza finale(F) e/o pulire tutte le stanze(D,V)!")
             var_da_stampare.append("\nMatrice letta: ")
             var_da_stampare.append("\n" + str(matrice_iniziale) + "")
+            var_da_stampare.append("Tempo di lettura: " + str(round(time_ocr, 3)) + "s")
             testo_formattato = "\n".join(var_da_stampare)
             self.display_image_sequence(image_sequence)
             self.output_text.insert(tk.END, testo_formattato)
@@ -1275,6 +1294,7 @@ class ImageProcessingApp:
 
         var_da_stampare.append("Matrice letta: ")
         var_da_stampare.append("\n" + str(matrice_iniziale) + "")
+        var_da_stampare.append("Tempo di lettura: " + str(round(time_ocr, 3)) + "s")
 
         var_da_stampare.append("\n\nOutput Algoritmo: ")
 
@@ -1283,7 +1303,8 @@ class ImageProcessingApp:
         else:
             var_da_stampare.append("Algoritmo utilizzato: DfsAlt Randomica")
 
-        var_da_stampare.append("Tempo di esecuzione: " + str(round(end_time - start_time,2)) +"s")
+
+        var_da_stampare.append("Tempo di esecuzione: " + str(round(time_alg,7)) +"s")
 
         matrice_finale = "\n".join(
             "  ".join(str(cell) + "\u2006" if cell == "X" else str(cell) for cell in row) for row in nodo_stampare.rooms)
@@ -1349,7 +1370,7 @@ class ImageProcessingApp:
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
 
         start_time = time.time()
-        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms, T_images = run_program(self.image_path,
+        nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms, T_images, time_ocr, time_alg = run_program(self.image_path,
                                                                                                   'GreedyAlt')
         end_time = time.time()
         # Converti gli array numpy in oggetti PIL.Image
@@ -1367,6 +1388,7 @@ class ImageProcessingApp:
             var_da_stampare.append("Impossibile trovare soluzione, matrice invalida!")
             var_da_stampare.append("\nMatrice letta: ")
             var_da_stampare.append("\n" + str(matrice_iniziale) + "")
+            var_da_stampare.append("Tempo di lettura: " + str(round(time_ocr, 3)) + "s")
             testo_formattato = "\n".join(var_da_stampare)
             self.display_image_sequence(image_sequence)
             self.output_text.insert(tk.END, testo_formattato)
@@ -1379,6 +1401,7 @@ class ImageProcessingApp:
             var_da_stampare.append("Impossibile raggiungere la stanza finale(F) e/o pulire tutte le stanze(D,V)!")
             var_da_stampare.append("\nMatrice letta: ")
             var_da_stampare.append("\n" + str(matrice_iniziale) + "")
+            var_da_stampare.append("Tempo di lettura: " + str(round(time_ocr, 3)) + "s")
             testo_formattato = "\n".join(var_da_stampare)
             self.display_image_sequence(image_sequence)
             self.output_text.insert(tk.END, testo_formattato)
@@ -1389,9 +1412,10 @@ class ImageProcessingApp:
 
         var_da_stampare.append("Matrice letta: ")
         var_da_stampare.append("\n" + str(matrice_iniziale) + "")
+        var_da_stampare.append("Tempo di lettura: " + str(round(time_ocr, 3)) + "s")
 
         var_da_stampare.append("\n\nOutput Algoritmo: ")
-        var_da_stampare.append("Tempo di esecuzione: " + str(round(end_time - start_time,2)) + "s")
+        var_da_stampare.append("Tempo di esecuzione: " + str(round(time_alg,7)) + "s")
         matrice_finale = "\n".join(
             "  ".join(str(cell) + "\u2006" if cell == "X" else str(cell) for cell in row) for row in nodo_stampare.rooms)
 
