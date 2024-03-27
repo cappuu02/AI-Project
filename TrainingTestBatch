@@ -1,21 +1,4 @@
 import importlib.util
-
-# Verifica se OpenCV è installato
-spec = importlib.util.find_spec("emnist")
-if spec is None:
-    !pip install emnist
-
-# Verifica se Matplotlib è installato
-spec = importlib.util.find_spec("tensorflow")
-if spec is None:
-    !pip install tensorflow
-
-# Verifica se keras-ocr è installato
-spec = importlib.util.find_spec("keras")
-if spec is None:
-    !pip install keras
-
-from google.colab import drive
 import numpy as np
 from tensorflow.keras import models, layers
 from tensorflow.keras.optimizers import Adam
@@ -23,8 +6,6 @@ from tensorflow.keras.callbacks import EarlyStopping
 from emnist import extract_training_samples, extract_test_samples
 from sklearn.utils import shuffle
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-
-
 
 
 # Carica il dataset delle lettere sia per training che per test, con le immagini e le label associate
@@ -79,14 +60,16 @@ datagen.fit(train_images_filtered) # Utilizzato per adattare l'ImageDataGenerato
 
 # Addestra il modello
 history = model.fit(datagen.flow(train_images_filtered, train_labels_filtered, batch_size=32), # Applica le trasformazioni di aumento dei dati in tempo reale, 32 specifica la dimensione del batch per l'addestramento del modello
-                    steps_per_epoch=len(train_images_filtered) / 32, epochs=20, # Steps è il rapporto tra la dimensione dell'insieme di addestramento e la dimensione del batch, le epoche sono 20
+                    steps_per_epoch=int(len(train_images_filtered) / 32), epochs=20, # Steps è il rapporto tra la dimensione dell'insieme di addestramento e la dimensione del batch, le epoche sono 20
                     validation_data=(test_images_filtered, test_labels_filtered), # Il modello viene anche valutato sull'insieme di dati di test per ogni epoca per monitorare le prestazioni del modello sulla validazione e per evitare l'overfitting
                     callbacks=[early_stopping]) #Fa uso della funzione early stopping
 
-model.save('/content/drive/MyDrive/ProgettoAI/Modello/MioModello') # Salva il modello
+model.save('C:\\Users\\capuc\\Desktop\\Progetto AI\\modello.h5')
+
 
 test_loss, test_accuracy = model.evaluate(test_images_filtered, test_labels_filtered) # Valuta il modello sul set di test
 
 print(f'Test Accuracy: {test_accuracy * 100:.2f}%')
 print(f'Test Loss: {test_loss:.4f}')
+
 
