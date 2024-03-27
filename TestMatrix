@@ -1,4 +1,4 @@
-
+import time
 
 import cv2
 from keras.models import load_model
@@ -1232,8 +1232,9 @@ class ImageProcessingApp:
 
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
 
+        start_time = time.time()
         nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms, T_images = run_program(self.image_path, 'DfsAlt')
-
+        end_time = time.time()
         # Converti gli array numpy in oggetti PIL.Image
         image_sequence = [Image.fromarray(img) for img in T_images]
 
@@ -1276,10 +1277,13 @@ class ImageProcessingApp:
         var_da_stampare.append("\n" + str(matrice_iniziale) + "")
 
         var_da_stampare.append("\n\nOutput Algoritmo: ")
+
         if (var_deterministic):
             var_da_stampare.append("Algoritmo utilizzato: DfsAlt Semi-Deterministica")
         else:
             var_da_stampare.append("Algoritmo utilizzato: DfsAlt Randomica")
+
+        var_da_stampare.append("Tempo di esecuzione: " + str(round(end_time - start_time,2)) +"s")
 
         matrice_finale = "\n".join(
             "  ".join(str(cell) + "\u2006" if cell == "X" else str(cell) for cell in row) for row in nodo_stampare.rooms)
@@ -1344,9 +1348,10 @@ class ImageProcessingApp:
 
         self.output_text.config(state=tk.DISABLED)  # Disabilita il widget di output per impedire la modifica
 
+        start_time = time.time()
         nodo_stampare, var_dirty, var_Vdirty, var_deterministic, var_GreedyAlt, rooms, T_images = run_program(self.image_path,
-                                                                                                 'GreedyAlt')
-
+                                                                                                  'GreedyAlt')
+        end_time = time.time()
         # Converti gli array numpy in oggetti PIL.Image
         image_sequence = [Image.fromarray(img) for img in T_images]
 
@@ -1386,9 +1391,19 @@ class ImageProcessingApp:
         var_da_stampare.append("\n" + str(matrice_iniziale) + "")
 
         var_da_stampare.append("\n\nOutput Algoritmo: ")
+        var_da_stampare.append("Tempo di esecuzione: " + str(round(end_time - start_time,2)) + "s")
         matrice_finale = "\n".join(
             "  ".join(str(cell) + "\u2006" if cell == "X" else str(cell) for cell in row) for row in nodo_stampare.rooms)
-        var_da_stampare.append("\nMatrice finale: \n" + str(matrice_finale))
+
+        matrice_finale_euristica = "\n".join(
+                            " ".join(str(cell).rjust(3) if len(str(cell)) == 2 else str(cell).rjust(3) + "\u2009" if cell != math.inf else "X".rjust(3) + "\u2009" for cell in row) for row in nodo_stampare.g)
+
+        combined_matrices = []
+        for state_row, heuristic_row in zip(matrice_finale.split('\n'), matrice_finale_euristica.split('\n')):
+            combined_matrices.append(state_row + "     " + heuristic_row)
+
+        var_da_stampare.append("\nMatrice finale: ")
+        var_da_stampare.append("\n". join(combined_matrices))
         var_da_stampare.append("\nNodo Finale: " + str(nodo_stampare.robot_node) + str(nodo_stampare.room))
         var_da_stampare.append("Costo Distanza: " + str(nodo_stampare.path_cost))
         var_da_stampare.append("Costo Pulizia Dirty(1): " + str(var_dirty))
@@ -1406,7 +1421,9 @@ class ImageProcessingApp:
             "  ".join(str(cell) + "\u2006" if cell == "X" else str(cell) for cell in row) for row in node.rooms)
 
             heuristic_formatted = "\n".join(
-                            " ".join(str(cell).rjust(3) if len(str(cell)) == 2 else str(cell).rjust(2) if cell != math.inf else "X".rjust(2) for cell in row) for row in node.g)
+                " ".join(str(cell).rjust(3) if len(str(cell)) == 2 else str(cell).rjust(
+                    3) + "\u2009" if cell != math.inf else "X".rjust(3) + "\u2009" for cell in row) for row in
+                node.g)
 
             # Unisci la matrice dello stato corrente e quella dell'euristica
             combined_matrices = []
