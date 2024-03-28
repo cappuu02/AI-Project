@@ -1,0 +1,145 @@
+`Sample images of Vacuum Cleaner Problem`
+![[Pasted image 20240327184145.png|600]]
+## Descrizione formale del dominio e dei vincoli:
+
+Il ==dominio del problema== del robot aspirapolvere è una _matrice_ $N \times N$ di stanze. 
+Le ==lettere== che ogni cella o stanza della matrice possono assumere sono **"$S$", "$F$", "$V$", "$X$", "$C$", "$D$"**. Ognuno di questi valori desume un _ruolo nel problema per quella determinata stanza_:
+- **"$S$"** è la stanza di partenza
+- **"$F$"** la stanza di arrivo
+- **"$D$"** una stanza sporca
+- **"$V$"** una stanza molto sporca
+- **"$C$"** una stanza pulita 
+- **"$X$"** una stanza inaccessibile.
+
+==Compito del robot== è di trasformare tutte le stanze sporche "**D**" e "**V**" in stanze pulite "**C**" tramite un algoritmo di ricerca informato ed uno non informato evitando di passare per le stanze inaccessibili "**X**". Il robot parte dalla stanza "**S**" e termina nella stanza "**F**" solo dopo aver trasformato tutte le stanze sporche in pulite.
+
+==Domini non validi==
+Perché un dominio sia considerabile valido per il problema, questo deve contenere _una ed una sola stanza di partenza **"$S$"** ed una ed una sola stanza di arrivo **"$F$"**_, domini con quantità differenti di questa tipologia di stanze saranno considerati automaticamente invalidi. 
+
+Vengono inoltre considerati invalidi tutti i domini che non permettono, a partire da una stanza **"S"** di raggiungere la stanza finale **"F"** e tutti i domini che hanno almeno una stanza sporca inaccessibile. Ovviamente sono considerati come invalide anche tutte le immagini che contengono domini che non siano matrici.
+
+## Dominio valido e vincoli
+Nel caso in cui sia data in input una _matrice valida_, il robot inizierà a muoversi all'interno di questa secondo i seguenti ==vincoli==:
+**v1**: Il robot può spostarsi solamente all'interno della stanze della matrice data come input.
+**v2**: Il robot può spostarsi solamente verso una stanza adiacente alla attuale alla volta.
+**v3**: Il robot può spostarsi solamente nelle 4 direzioni cardinali (N,S,E,O) e non può spostarsi in obliquo.
+**v4**: Il robot non può spostarsi all'interno di stanze inaccessibili **"X"**.
+**v5**: Il robot può pulire solo le stanze considerate sporche **"D"** e **"V"**.
+**v6**: Il robot inizia sempre sullo stato iniziale **"S"**.
+**v7**: Il robot termina sempre sullo stato finale **"F"**.
+**v8**: Il robot può passare per lo stato finale **"F"** durante l'esecuzione ma non può terminare fintanto che ci sono stanze ancora sporche.
+
+## Statistiche e valutazioni modello/ocr:
+Le ==librerie== utilizzate per il training/test del modello sono le seguenti: 
+- _Tensorflow_
+- _Keras_
+- _Emnist_
+- _numpy_.
+Il modello è stato allenato utilizzando il database ==EMNIST== ed estraendo da quest'ultimo solamente i simboli necessari al problema: **"S","V","D","F","C","X"**. (circa 900 dati)
+
+`Sample images from MNIST`
+![[Pasted image 20240328153218.png|500]]
+
+Il modello si basa su una ==rete convoluzionale== a tre strati con $64$, $128$ e $256$ filtri applicati ed ognuno con grandezza $3 \times 3$. Ad ogni strato viene applicato uno strato di max pooling che riduce le dimensioni spaziali dell'output e mitiga un eventuale overfitting dei dati. Infine viene applicato uno strato denso con 512 neuroni ed uno di output con 25 numeri (solo perché la X ha valore 24 in EMNIST). Le funzioni di attivazioni utilizzate sono la ==ReLu== per tutti gli strati e la softmax per l'output.
+Il modello è stato allenato con ==early stopping== e data augmentation per espandere i dati oltre a quelli di EMNIST in 20 epoche e utilizzando l'ottimizzatore adam (che gestisce in automatico il learning rate).
+
+```ad-check
+title: Accuracy and Loss Rate
+`Fase Training`: Il modello ha un'_accuracy_ di: $98.16$% con _loss_ di $7.15$%
+`Fase di Test`: Il modello ha un'_accuracy_ di: $98.02$% con _loss_ di $6.87$%
+```
+
+
+Le accuracy sono quasi coincidenti, questo significa che il modello non soffre nè di underfitting (ovvero di un'accuracy di training e di test bassi) nè di overfitting (ovvero di un'accuracy di training alta ed una di test bassa).
+
+Per la lettura delle immagini abbiamo utilizzato ==Keras-Ocr== e ==OpenCV==. La lettura si basa su diversi passaggi che hanno come scopo quello di facilitare l'identificazione delle lettere:
+1. L'immagine viene data al sistema.
+2. Il sistema _riconosce e rimuove la griglia dall'immagine_ (per evitare rumore).
+3. Il sistema _ottimizza l'immagine per la lettura_ (ridimensionamento, scala di grigi, binarizzazione, inversione dei colori).
+4. L'immagine ottimizzata viene _scannerizzata dal sistema per delinearne i contorni_.
+5. _Per ogni contorno viene costruita una ROI_ o regione di interesse che cerca di delineare la lettera nel modo più preciso possibile.
+6. La _ROI_ viene _ottimizzata_ (ridimensionamento etc...).
+7. La _ROI_ ottimizzata viene _data al modello che "legge" la lettera_ corrispondente.
+8. _Le lettere identificate dal modello vengono ordinate e poste all'interno di una matrice pronte per essere usate dal problema_.
+
+L'==OCR== si comporta molto bene nella lettura delle immagini digitali, anche se è molto facile che "impazzisca" se le matrici rappresentate sono troppo dense o se la griglia è troppo piccola (non viene riconosciuta) o storta. Un'altra causa di errore sono immagini illuminate in maniera disomogenea e con presenza di ombre che causano rumore (o le ombre diventano lettere o vengono scambiate per la griglia).
+
+>La percentuale di successo è comunque molto elevata e siamo riusciti a farlo funzionare su matrici digitali $12 \times 12$ anche con percentuali di accuratezza del $100$%.
+
+Rispetto al nostro insieme di matrici digitali (Circa $20$ matrici di diverse grandezza) si comporta sempre con una percentuale di accuratezza che si aggira tra il $90$% ed il $100$% e gli errori nella gran parte dei casi sono limitati alla singola lettera e probabilmente sono causati dal training del modello che, seppur molto buono, non è infallibile.
+
+
+## Problema della ricerca
+Per il ==problema della ricerca== abbiamo utilizzato 
+- _utils.py_ (importate manualmente)
+- _search.py_ (importate manualmente)
+- mix di funzioni prese dalle lezioni e dal github di AIMApython.
+
+Oltre a questo abbiamo importato le librerie:
+- _math_
+- _random_
+- _tkinter_ (per l'interfaccia grafica) 
+- _PIL_ (per la lettura delle immagini).
+
+### Valutazioni ricerca non informata
+La ==ricerca non informata== si basa su una Dfs pesantemente modificata (chiamata da noi DfsAlt)  che utilizza gli esplorati (che vengono rimossi nel caso in cui il robot risulti incastrato).
+Sia `frontiera` che `esplorati` non sono generici ma _salvati in locale nei child del nodo parent_, dunque quando vengono modificati questa modifica viene fatto solo in locale.
+
+Si sviluppa in profondità proprio perché dalla frontiera viene estratto sempre il nodo che è stato inserito per primo (primo inserito, primo servito) e dato che la frontiera è locale, _il nodo servito sarà sempre uno dei nodi adiacenti all'attuale_ e mai uno di quelli scoperti precedentemente (che sono assenti dalla frontiera locale).
+
+Sono state implementate due versioni, una ==randomica== che decide ad ogni passo con una certa percentuale se comportarsi in maniera _randomica_ o _deterministica_ e quindi se inserire il nodo deterministico o quello estratto randomicamente nella frontiera.
+
+La seconda versione è ==Semi-Deterministica== perché è sempre deterministica tranne nelle situazioni in cui c'è un loop, appena viene rilevato un loop infatti l'algoritmo inizia a comportarsi randomicamente per uscirne. 
+
+```ad-todo
+title: Info
+
+La complessità/efficienza della Semi-Deterministica è inferiore in termini di costanti numeriche a quella di una DFS standard, ma volevamo provare ad implementare qualcosa che fosse "home-made" e quindi ci siamo cimentati a modificare il codice da cima a fondo per creare una nostra versione dell'algoritmo.
+```
+
+
+#### Complessità
+La ==complessità spaziale== è simile a quella della Dfs standard con l'aggiunta che _non abbiamo solo una frontiera ma una frontiera/esplorati per ogni child del nodo_, che aggiunge spazio in memoria da allocare, se dovessimo però limitarla ai soli nodi esplorati allora sarebbe la grandezza della matrice moltiplicata per una costante numerica (che rappresenta la profondità): $$\theta[(n^2)]$$
+La ==complessità temporale== _aumenta_ (più esponenziale che lineare) _al crescere delle matrici_, se matrici $3 \times 3$ ci mettono circa  $0.0156984$s ad essere sviluppata, $6 \times 6$ $0.0142984$s arriviamo alle $12 \times 12$ con un tempo di $0.3587818$s
+I calcoli sulla temporale però sono molto approssimativi poiché dipendono molto dall'hardware utilizzato nell'esecuzione, con computer meno performanti avremmo probabilmente risultati molto diversi.
+
+### Valutazioni ricerca informata:
+La ==ricerca informata== si basa su una funzione Greedy pesantemente modificata (GreedyAlt) che sfrutta la DfsAlt precedentemente descritta come algoritmo di esplorazione.
+Valgono dunque le considerazioni fatte rispetto alla DfsAlt con l'aggiunta dell'euristica.
+Anche per la GreedyAlt non viene quasi per nulla utilizzata la frontiera prioritaria (viene trattata praticamente allo stesso modo della DfsAlt) per organizzare i nodi successivi da estrarre.
+
+L'==euristica== è di tipo _dinamico_ ed è costruita su una matrice ad hoc che viene ricostruita man mano che l'algoritmo prosegue utilizzando la distanza di Manhattan.
+
+![[Pasted image 20240327191812.png|500]]
+
+Quindi, how does it work? In poche parole l'algoritmo _cerca la stanza sporca più vicina alla stanza attuale_ (se siamo al primo passo, la stanza attuale sarà la sorgente) e costruisce la ==matrice dell'euristica== _calcolandosi tutte le distanze a partire da ogni nodo della matrice per arrivare a quella determinata stanza sporca_. Si va così a creare una "scala" o percorso di valori da seguire per arrivare alla stanza sporca. 
+
+A questo punto il robot controlla quali valori di euristica sono attorno alla sua stanza di origine e viene messo in frontiera solo il nodo con l'euristica minore (o nodi nel caso di valori uguali). Questo viene estratto e così, passo dopo passo, si arriva alla stanza sporca.
+Una volta pulita la stanza sporca viene ricostruita di nuovo la matrice dell'euristica usando però come sorgente la stanza attuale dove si trova il robot e come destinazione la prossima stanza sporca più vicina e così via…
+Infine, quando il robot avrà pulito tutte le stanze sporche verrà ricostruita per l'ultima volta la matrice dell'euristica utilizzando però come destinazione la stanza finale "**F**" dove il robot terminerà l'esecuzione. Anche la GreedyAlt presenta un minimo tasso di randomicità nel caso in cui vi fossero dei loop.
+
+```ad-bug
+
+Perché ci siamo andati a complicare la vita in questo modo :(? Perché era più divertente e soddisfacente metterci le mani dentro e trovare un modo per far funzionare il tutto "fatto in casa".
+```
+
+>Manhattan viene fatto per ogni stanza sporca.
+#### Complessità:
+La ==complessità spaziale== è _più grande di quella della Greedy standard_ (anche perché per ogni pulizia fatta ricostruiamo un'intera matrice), molti controlli sono fatti analizzando tutte le stanze della matrice e abbiamo una frontiera/esplorati per child che occupano spazio in memoria, però se dovessimo farla solo inerentemente all'analisi dei nodi esplorati allora sarebbe circa:
+$$\theta(n^2 * n^2)$$
+
+
+La ==complessità temporale== _aumenta_ al crescere delle matrici
+
+>se matrici 3x3 ci mettono 0.0009947s ad essere sviluppata, 6x6 0.0060549s arriviamo alle 12x12 con un tempo di 0.4597311s
+
+I _calcoli sulla temporale però sono molto approssimativi_ poiché dipendono molto dall'hardware utilizzato nell'esecuzione, con computer meno performanti avremmo probabilmente risultati molto diversi.
+
+### Problemi risolti/Irrisolti per la ricerca:
+Abbiamo _testato gli algoritmi fino ad un massimo di matrici digitali_ $12 \times 12$ quindi potremmo definire risolti i problemi con matrici di dimensioni quadrate $\le$ $12 \times 12$. 
+Tutti i problemi superiori sono incognite che per "onestà intellettuale" definiremo come _irrisolti_.
+
+Gli algoritmi gestiscono situazioni di loop, gestiscono vicoli ciechi, evitano le stanze inaccessibili correttamente e gestiscono situazioni anomale come problemi irrisolvibili (dove o non si può raggiungere il nodo finale o non si riescono a pulire tutte le stanze sporche) dando errori appropriati.
+
+==GRAZIE PER L'ATTENZIONE==
+![[Pasted image 20240328153253.png|500]]
