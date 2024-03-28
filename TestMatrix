@@ -1,5 +1,5 @@
+#IMPORT LIBRERIA
 import time
-
 import cv2
 from keras.models import load_model
 from utils import *
@@ -9,19 +9,21 @@ import random
 import math
 
 
-
-
+#funzione che prende un immagine e rimuove la griglia
 def remove_grid(image):
-    edges = cv2.Canny(image, 50, 700, apertureSize=3)
+    #Rileva Bordi Immagine
+    edges = cv2.Canny(image, 20, 200, apertureSize=3)
+    #kernel di dimensioni 5x5 pieno
     kernel = np.ones((5, 5), np.uint8)
+    #applicata la chiusura morfologica sull'immagine dei bordi
     edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+    #utilizzata la trasformata di Hough probabilistica per individuare le linee nell'immagine dei bordi.
     lines = cv2.HoughLinesP(edges, 0.1, np.pi / 180, threshold=100, minLineLength=150, maxLineGap=20)
 
     if lines is not None:
         for line in lines:
             x1, y1, x2, y2 = line[0]
             cv2.line(image, (x1, y1), (x2, y2), (255, 255, 255), 10)
-
     return image
 
 
@@ -29,28 +31,8 @@ def remove_grid(image):
 def load_and_display_image(image_name):
     image = cv2.imread(image_name)
     image_without_grid = remove_grid(image)
-
     return image_without_grid
 
-
-def stampa_matrice(rooms):
-    rows, cols = len(rooms), len(rooms[0])
-    # Calcola la lunghezza massima delle coordinate delle colonne
-    max_col_width = len(str(cols - 1))
-
-    # Stampa le coordinate superiori della matrice
-    print(" " * (max_col_width + 2), end=" ")
-    for col in range(cols):
-        print(str(col).rjust(max_col_width), end=" ")
-    print()
-    print("-" * (max_col_width + 4 + cols * 2))
-
-    # Stampa la matrice
-    for row in range(rows):
-        print(str(row).rjust(max_col_width), "|", end=" ")
-        for col in range(cols):
-            print(rooms[row][col], end=" ")
-        print()
 
 
 def run_program(image_name, search_algorithm):
@@ -76,15 +58,21 @@ def run_program(image_name, search_algorithm):
             return False
         return True
 
-    model_path = f'MioModello.h5'
+    model_path = f'modello.h5'
 
     gray_image = cv2.cvtColor(image_without_grid, cv2.COLOR_BGR2GRAY)
 
+    #Ridimensiona l'immagine a una dimensione più piccola
     resized_image = cv2.resize(gray_image, (0, 0), fx=0.5, fy=0.5)
+    #applica un filtro di sfocatura gaussiano all'immagine ridimensionata per ridurre rumore
     blurred_image = cv2.GaussianBlur(resized_image, (5, 5), 0)
-    _, binary_image1 = cv2.threshold(blurred_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    binary_image = cv2.bitwise_not(binary_image1)
+    #binarizzare l'immagine
+    _, binary_image1 = cv2.threshold(gray_image, 175, 255, cv2.THRESH_BINARY)
+    #_, binary_image1 = cv2.threshold(blured_image, 175, 255, cv2.THRESH_BINARY)
 
+    #invertire i colori dell'immagine binaria ottenuta dalla fase precedente
+    binary_image = cv2.bitwise_not(binary_image1)
+    #trova i contorni nell'immagine binaria invertita.
     contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     model = load_model(model_path)
@@ -132,7 +120,6 @@ def run_program(image_name, search_algorithm):
     rooms = [[letter_info[0] for letter_info in row] for row in row_letters]
     print("")
     print("Matrice delle lettere predette:")
-    stampa_matrice(rooms)
     print("")
     print("")
     SF = check_SF(rooms)
@@ -340,7 +327,6 @@ def run_program(image_name, search_algorithm):
                 node.robot_node = "C"
                 print("")
                 print("Pulisco la stanza", room, "con costo 1 (D->C):")
-                stampa_matrice(node.rooms)
                 print("")
 
                 return None  # Indica che l'azione di pulizia è stata eseguita e che non c'è un nodo successivo
@@ -350,7 +336,6 @@ def run_program(image_name, search_algorithm):
                 node.robot_node = "C"
                 print("")
                 print("Pulisco la stanza", room, "con costo 3 (V->C):")
-                stampa_matrice(node.rooms)
                 print("")
 
                 return None  # Indica che l'azione di pulizia è stata eseguita e che non c'è un nodo successivoo
@@ -683,7 +668,6 @@ def run_program(image_name, search_algorithm):
         print("Nodo Corrente: ", None)
         print("")
         print("Matrice Corrente: ")
-        stampa_matrice(node.rooms)
         print("")
 
         while node.frontier and count < max_count:
@@ -711,7 +695,6 @@ def run_program(image_name, search_algorithm):
             print("Nodo Corrente: ", node)
             print("")
             print("Matrice Corrente: ")
-            stampa_matrice(node.rooms)
             print("")
 
             for child, stato in node.expand(problem, node, deterministic, GreedyAlt=False):
@@ -757,7 +740,6 @@ def run_program(image_name, search_algorithm):
 
             print("Nodo Corrente: ", node)
             print(count)
-            stampa_matrice(node.g)
 
             if problem.goal_test((node.robot_node, (node.room)), node):
                 end_time_alg = time.time()
