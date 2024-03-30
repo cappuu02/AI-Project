@@ -76,44 +76,56 @@ def run_program(image_name, search_algorithm):
 
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-
+        # Ottieni la regione di interesse (ROI) dall'immagine binaria in base alle coordinate del contorno
         roi = binary_image[y:y + h, x:x + w]
+        # Ridimensiona la ROI a 28x28
         roi_resized = cv2.resize(roi, (28, 28))
+        # Normalizza l'immagine dividendo per 255
         image_normalized = roi_resized / 255.0
+        # Rimodella l'immagine per l'input del modello# Rimodella l'immagine per l'input del modello
         input_data = image_normalized.reshape(1, 28, 28, 1)
 
+        #effettuiamo predizioni usando il modello
         predictions = model.predict(input_data)
         predicted_value = np.argmax(predictions)
 
+        # Mappa il valore previsto sulla lettera corrispondente
         letter_mapping = {'S': 19, 'C': 3, 'X': 24, 'V': 22, 'D': 4, 'F': 6}
         predicted_letter = [letter for letter, value in letter_mapping.items() if value == predicted_value][0]
         predicted_letters.append((predicted_letter, x, y))
 
+    # Crea un elenco di immagini trasformate
     transformed_images = [image1, image_without_grid, gray_image, blurred_image, binary_image1, binary_image, roi]
 
+    # Ordina le lettere previste in base alla loro coordinata y
     predicted_letters.sort(key=lambda x: x[2])
+
+    # Inizializza le variabili per il raggruppamento di righe
     row_letters = []
     current_row = []
-    prev_y = None
+    prev_y = None # Variabile per tenere traccia della coordinata y precedente
 
     for letter_info in predicted_letters:
-        _, _, y = letter_info
-        if prev_y is None or abs(y - prev_y) < 30:
-            current_row.append(letter_info)
+        _, _, y = letter_info # Estrae la coordinata y da letter_info
+        if prev_y is None or abs(y - prev_y) < 30: # Controlla se questa lettera è abbastanza vicina alla lettera precedente nella stessa riga
+            current_row.append(letter_info) # Aggiunge la lettera alla riga corrente
         else:
-            row_letters.append(sorted(current_row, key=lambda x: x[1]))
-            current_row = [letter_info]
-        prev_y = y
+            row_letters.append(sorted(current_row, key=lambda x: x[1])) # Aggiungi la riga corrente ordinata a row_letters
+            current_row = [letter_info] # Start a new row with the current letter
+        prev_y = y # Aggiorna y
 
     end_time_ocr = time.time()
     time_ocr = end_time_ocr - start_time_ocr
-    row_letters.append(sorted(current_row, key=lambda x: x[1]))
-    rooms = [[letter_info[0] for letter_info in row] for row in row_letters]
+    row_letters.append(sorted(current_row, key=lambda x: x[1])) # Aggiungi l'ultima riga a row_letters
+    rooms = [[letter_info[0] for letter_info in row] for row in row_letters] # Crea un elenco di lettere per ogni riga
     print("")
     print("Matrice delle lettere predette:")
     print("")
     print("")
+    # Controlla se le stanze previste costituiscono una soluzione valida (solo 1 "S" ed 1 "F")
     SF = check_SF(rooms)
+    # Se le stanze previste non formano una soluzione valida
+    # restituisce None per tutte le variabili di output
     if(check_SF(rooms) == False):
         return None, None, None, None, None, rooms, transformed_images, time_ocr, None
 
@@ -235,20 +247,29 @@ def run_program(image_name, search_algorithm):
                             possible_actions.append("move_right")
 
 
-                if(node.countloop >= 4):
+                #counter di loop > 4
+                if(node.countloop >= 4):  
                     print(possible_actions)
                     print(possible_actionsNoH)
+                
+                    # Concatena possibili_azioni e possibili_azioniNoH, quindi mischia l'elenco combinato
                     possible_actions_ordered = possible_actions + possible_actionsNoH
                     random.shuffle(possible_actions_ordered)
+                
+                    # Chiama la funzione robot_stuck con le possibili azioni mescolate
                     robot_stuck(node, node.explored, possible_actions_ordered)
                     print(possible_actions_ordered)
-
+                
+                    # Stampa la concatenazione di azioni_fisse e azioni_possibili_ordinate, quindi la restituisce
                     print(fixed_actions + possible_actions_ordered)
                     return fixed_actions + possible_actions_ordered
-                if(node.countloop < 4):
+                # counter loop < 4
+                else:  
+                    # Stampa le possibili azioni e chiama la funzione robot_stuck con possible_actions
                     print("Azioni Possibili: ", fixed_actions + possible_actions)
                     robot_stuck(node, node.explored, possible_actions)
-                    return fixed_actions + possible_actions
+                    
+                    return fixed_actions + possible_actions # Restituisce la concatenazione di azioni_fissi e azioni_possibili
 
             if GreedyAlt == False: #Vero, significa che NON stiamo usando la GreedyAlt ma la DfsAlt
                 # Inizializza le liste per le azioni possibil
@@ -262,9 +283,11 @@ def run_program(image_name, search_algorithm):
                 
                 robot_row, robot_col = room
 
+                # Se lo stato è dirty o Vdirty, posso eseguire l'azione di clean o Vclean
                 if state in [self.dirty]:
                     possible_actions.append("clean")
                     fixed_actions.append("clean")
+                # Se lo stato è Vdirty, posso eseguire l'azione di Vclean
                 if state in [self.Vdirty]:
                     possible_actions.append("Vclean")
                     fixed_actions.append("Vclean")
@@ -295,10 +318,11 @@ def run_program(image_name, search_algorithm):
 
                 robot_stuck(node, node.explored, possible_actions)
 
+                # Se non è deterministico
                 if (not deterministic):
                     # Lista delle azioni rimanenti
                     print("Azioni possibiliR", possible_actions)
-                    remaining_actions = [action for action in possible_actions if action not in static]
+                    remaining_actions = [action for action in possible_actions if action not in static] # Trovo le azioni rimanenti
                     print("Azioni RimanentiR", remaining_actions)
 
                     # Mischiare le azioni rimanenti
@@ -311,20 +335,25 @@ def run_program(image_name, search_algorithm):
                     print("Azioni Possibili FinaliR", possible_actions_R)
                     return possible_actions_R
 
+                # Se è deterministico e il numero di loop è maggiore o uguale a 4
                 if (deterministic and node.countloop >= 4):
                     node.countloop = 0
+                    # Trovo le azioni rimanenti
                     remaining_actions = [action for action in possible_actions if action not in static]
                     random.shuffle(remaining_actions)
                     return fixed_actions + remaining_actions
 
+                # Se è deterministico e il numero di loop è minore di 4
                 if (deterministic and node.countloop <4):
                     print("Azioni possibiliD", possible_actions)
+                    # Ritorna le azioni possibili
                     return possible_actions
+
+
 
         #funzione che ritorna il risultato dall'esecuziuone dell'azione in uno stato specifico
         def result(self, node, action, problem):
-            # salva la lettera
-            room = node.room
+            room = node.room # salva la lettera
 
             
             if action == "clean": #Se azione è pulire 
@@ -396,16 +425,18 @@ def run_program(image_name, search_algorithm):
             row, col = room
             return h_value[row][col]
 
-
+        # Aggiorna l'euristica per ogni stanza della matrice
+        # Calcolo l'euristica per ogni stanza rispetto ad una stanza sporca adiacente alla sorgente
         def h_update(self, next_room, node):
             h_values = [[None for _ in range(len(rooms[0]))] for _ in range(len(rooms))]
 
+            # Trova una stanza sporca adiacente al nodo attuale
             dirty_rooms = []
             final_position = None
             nearest_dirty_room = None
             inaccessibile = False
             nearest_distance = math.inf
-            deadend_rooms = []
+            deadend_rooms = [] # Stanze inaccessibili
 
             # Trova una stanza sporca adiacente al nodo attuale
             for row_idx, row in enumerate(node.rooms):
@@ -413,16 +444,19 @@ def run_program(image_name, search_algorithm):
                     if cell == "D" or cell == "V":  # Verifica se la stanza è sporca
                         room = (row_idx, col_idx)
                         distance = calculate_distance(next_room, room)
-
+                        
+                        # Trova la stanza sporca adiacente con distanza minima
                         if distance < nearest_distance and next_room_deadend(node, room) == False:
                             nearest_distance = distance
                             nearest_dirty_room = room
 
+                        # Trova la stanza sporca adiacente con distanza minima anche tra le stanze inaccessibili
                         if distance <= nearest_distance and next_room_deadend(node, room) == True:
                             nearest_distance = distance
                             nearest_dirty_room = room
                             deadend_rooms.append(room)
 
+                        # Verifica se la stanza è inaccessibile
                         if distance < nearest_distance and next_room_deadend(node, room) == None:
                             print("!!!Stanza Inaccessibile: ", room)
                             inaccessibile = True
@@ -431,9 +465,11 @@ def run_program(image_name, search_algorithm):
                     if cell == "F":
                         final_position = (row_idx, col_idx)
 
+            # Se la stanza è inaccessibile ma non ci sono stanze sporche adiacenti, utilizza la stanza inaccessibile
             if (inaccessibile == True and nearest_dirty_room == None):
                 nearest_dirty_room = room_inaccessibile
 
+            # Se ci sono stanze inaccessibili, cerca una stanza sporca adiacente anche tra le stanze inaccessibili
             if (deadend_rooms != None):
                 for row_idx, row in enumerate(node.rooms):
                     for col_idx, cell in enumerate(row):
@@ -443,6 +479,7 @@ def run_program(image_name, search_algorithm):
                             if (room in deadend_rooms):
                                 distance = calculate_distance(next_room, room)
 
+                                # Trova la stanza sporca adiacente con distanza minima anche tra le stanze inaccessibili
                                 if distance <= nearest_distance:
                                     nearest_distance = distance
                                     nearest_dirty_room = room
@@ -687,8 +724,7 @@ def run_program(image_name, search_algorithm):
         count = 0
 
         if not deterministic:
-            # Lista dei nodi finali (soluzione alternativa)
-            nodi_finali = []
+            nodi_finali = [] # Lista dei nodi finali (soluzione alternativa)
 
         initial_state = find_initial_position(rooms)
         state, room = initial_state
@@ -805,11 +841,10 @@ def run_program(image_name, search_algorithm):
         time_alg = end_time_alg - start_time_alg
         return None, dirty_count, Vdirty_count, rooms, transformed_images, time_alg
 
+    # Se la funzione euristica h non è specificata, viene utilizzata la funzione h predefinita del problema.
+    # La funzione memoize viene utilizzata per memorizzare i risultati della funzione euristica h al fine di migliorare le prestazioni.
     def GreedyAlt(problem, h=None):
-        # Se la funzione euristica h non è specificata, viene utilizzata la funzione h predefinita del problema.
-        # La funzione memoize viene utilizzata per memorizzare i risultati della funzione euristica h al fine di migliorare le prestazioni.
         h_cost = problem.h_generate(rooms)
-
         return DfsAlt_greedy(problem, h_cost)
 
     # Funzione che Ritorna la posizione della lettera "S" nella matrice 
@@ -857,10 +892,8 @@ def run_program(image_name, search_algorithm):
 
     # Calcolo la distanza usando l'euristica di Manhattan
     def calculate_distance(room1, room2):
-        
         dx = abs(room1[0] - room2[0])
         dy = abs(room1[1] - room2[1])
-
         return (dx + dy)
 
     #Funzione che determina se il robot è bloccato
@@ -874,6 +907,7 @@ def run_program(image_name, search_algorithm):
         left_blocked = robot_col == 0 or find_letter_position(node, room[0], room[1] - 1) == "X"
         right_blocked = robot_col >= len(rooms) - 1 or find_letter_position(node, room[0], room[1] + 1) == "X"
 
+        # Conta quante direzioni sono bloccate
         if (up_blocked == True):
             blocked_directions += 1
         if (down_blocked == True):
@@ -924,7 +958,8 @@ def run_program(image_name, search_algorithm):
         else:
 
             return False
-
+    
+    #Funzione che verifica se il robot è bloccato in 4 direzioni
     def robot_stuck(node, explored, azioni):
         robot_row, robot_col = node.room
 
@@ -974,8 +1009,9 @@ def run_program(image_name, search_algorithm):
                           "dagli esplorati per permettere al robot di spostarsi")
     
     if (SF == True):
-        problema = SmartVacuum(Problem)
+        problema = SmartVacuum(Problem) #crea l'istanza del problema
 
+        # Controlla se l'algoritmo di ricerca è DfsAlt
         if (search_algorithm == "DfsAlt"):
             final_nodes = []
             nodo_best = None
@@ -984,15 +1020,16 @@ def run_program(image_name, search_algorithm):
             deterministic = True
             GreedyAlt = False
 
-
+            #Esegui DfsAlt con deterministico come True
             nodo_deterministico, dirty_count, Vdirty_count, rooms, T_images, time_alg = DfsAlt(problema, True)
 
-
+            # Esegui DfsAlt con deterministico come False
             nodo_randomico, dirty_count, Vdirty_count, rooms, T_images, time_alg = DfsAlt(problema, False)
             print('--')
             print("--")
             print("Scelta migliore algoritmo: ")
 
+            # Esegui DfsAlt con deterministico come False
             if (nodo_deterministico != None):
                 final_nodes.append(nodo_deterministico)
                 print("Costo Nodo Deterministico: ", nodo_deterministico.path_cost)
@@ -1000,6 +1037,7 @@ def run_program(image_name, search_algorithm):
             else:
                 print("Costo Nodo Deterministico: ", None)
 
+            # Esegui DfsAlt con deterministico come False
             if (nodo_randomico != None):
                 final_nodes.append(nodo_randomico)
                 print("Costo Nodo Randomico: ", nodo_randomico.path_cost)
@@ -1007,6 +1045,7 @@ def run_program(image_name, search_algorithm):
             else:
                 print("Costo Nodo Randomico: ", None)
 
+            # Scegli il nodo con il path_cost più basso come nodo_best
             if (nodo_deterministico != None):
                 nodo_best = nodo_deterministico
                 deterministic = True
@@ -1023,6 +1062,7 @@ def run_program(image_name, search_algorithm):
 
                 print("Costo migliore: ", nodo_best.path_cost)
 
+            # Se nodo_best non è None, lo stampa e restituisce le variabili rilevanti
             if (nodo_best != None):
                 print(nodo_best)
                 GreedyAlt = False
@@ -1040,18 +1080,20 @@ def run_program(image_name, search_algorithm):
                 deterministic = True
                 return None, dirty_count, Vdirty_count, deterministic, GreedyAlt, rooms, T_images, time_ocr, time_alg
 
+        # Controlla se l'algoritmo di ricerca è GreedyAlt
         if (search_algorithm == "GreedyAlt"):
             nodo_best = None
             dirty_count = None
             Vdirty_count = None
             deterministic = True
 
-
+            # Run GreedyAlt
             result, dirty_count, Vdirty_count, rooms,T_images, time_alg = GreedyAlt(problema)
 
 
             GreedyAlt = True
 
+            # Se il risultato non è Nessuno, lo stampa e restituisce le variabili rilevanti
             if result != None:
                 deterministic = True
                 GreedyAlt = False
